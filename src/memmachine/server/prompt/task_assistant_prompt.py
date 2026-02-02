@@ -30,7 +30,8 @@ task_assistant_tags: dict[str, str] = {
     # === Life & Personal Summary (Life-Oriented) ===
     "interests": "Interests and hobbies: what the user enjoys doing, passions, recreational activities, creative pursuits, learning interests, entertainment preferences, cultural interests, things the user likes to do in their free time.",
     "lifestyle": "Lifestyle patterns and habits: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance, stress management, leisure activities, travel patterns, time management style, how the user lives their daily life.",
-    "goals": "Goals and aspirations: short-term and long-term goals (career, personal development, health, financial, relationship, educational), life vision, desired achievements, long-term plans, what the user wants to become or accomplish.",    "personality": "Personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, how the user typically behaves and interacts.",
+    "goals": "Goals and aspirations: short-term and long-term goals (career, personal development, health, financial, relationship, educational), life vision, desired achievements, long-term plans, what the user wants to become or accomplish.",
+    "personality": "Personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, how the user typically behaves and interacts.",
     "life_situation": "Current life circumstances and context: living situation, family structure, work situation, major life events, transitions, challenges, opportunities, current stage of life, what's happening in the user's life right now.",
 }
 
@@ -40,8 +41,9 @@ task_assistant_description = """
     The assistant helps users complete tasks and provides personalized life guidance across sessions.
     
     IMPORTANT CONTEXT:
-    - Episodic memories already contain refined descriptions and atomic claims
-    - Your job is to extract stable, reusable user information that helps the agent:
+    - Episodic memories already contain refined descriptions and atomic claims, including all historical events and temporary states
+    - Semantic memory is for STABLE, REUSABLE user information that persists across sessions
+    - Your job is to extract stable user information that helps the agent:
       * Complete tasks more efficiently in future sessions
       * Provide personalized life advice and recommendations
       * Understand the user's context, goals, and constraints
@@ -57,6 +59,21 @@ task_assistant_description = """
     - Include information that helps the agent understand the user deeply, not just complete tasks
     - Extract patterns and recurring needs that indicate life context
     
+    DO NOT EXTRACT (These belong in episodic memory, not semantic memory):
+    - Historical events or past actions (e.g., "booked a flight on 2026-01-23", "visited Paris last summer")
+    - Temporary states or pending actions (e.g., "flight_booking_pending", "waiting for payment")
+    - One-time transactions or specific occurrences (e.g., "made a purchase", "called customer service")
+    - Time-specific information that will become outdated (e.g., "currently traveling", "has a meeting tomorrow")
+    - Travel history, booking history, transaction history, or any event-based information
+    - Temporary preferences or context-dependent choices (e.g., "wants pizza today" vs. stable "prefers Italian food")
+    
+    ONLY EXTRACT STABLE INFORMATION:
+    - User's stable characteristics, preferences, and patterns (e.g., "prefers morning meetings", "likes Italian food")
+    - Permanent or long-term information (e.g., "lives in San Francisco", "works as a software engineer")
+    - Reusable account information, contact details, and service provider relationships
+    - Personal traits, goals, values, and lifestyle patterns that persist over time
+    - Relationship information and family context that remains stable
+    
     PRIORITIZE:
     1. Information needed to complete tasks (accounts, contacts, identities, services, relationships)
     2. User preferences that affect task execution (preferences)
@@ -69,11 +86,12 @@ task_assistant_description = """
       goals, values, and constraints to offer meaningful guidance
     
     Be thorough but precise. Extract information that makes the agent both more helpful in task completion
-    and more insightful in understanding and advising the user.
+    and more insightful in understanding and advising the user. Remember: if it's a one-time event or temporary
+    state, it belongs in episodic memory, not semantic memory.
 """
 
 TaskAssistantSemanticCategory = SemanticCategory(
-    name="task_assistant",
+    name="profile",
     prompt=StructuredSemanticPrompt(
         tags=task_assistant_tags,
         description=task_assistant_description,
