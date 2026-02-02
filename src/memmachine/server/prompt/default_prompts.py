@@ -11,7 +11,10 @@ from memmachine.server.prompt.health_assistant_prompt import (
 )
 from memmachine.server.prompt.profile_prompt import UserProfileSemanticCategory
 from memmachine.server.prompt.task_assistant_prompt import (
-    TaskAssistantSemanticCategory,
+    LifeContextSemanticCategory,
+)
+from memmachine.server.prompt.task_facts_prompt import (
+    TaskFactsSemanticCategory,
 )
 from memmachine.server.prompt.writing_assistant_prompt import (
     WritingAssistantSemanticCategory,
@@ -19,7 +22,8 @@ from memmachine.server.prompt.writing_assistant_prompt import (
 
 PREDEFINED_SEMANTIC_CATEGORIES: dict[str, SemanticCategory] = {
     "profile_prompt": UserProfileSemanticCategory,
-    "task_assistant_prompt": TaskAssistantSemanticCategory,
+    "task_assistant_prompt": LifeContextSemanticCategory,
+    "task_facts_prompt": TaskFactsSemanticCategory,
     "coding_prompt": CodingStyleSemanticCategory,
     "writing_assistant_prompt": WritingAssistantSemanticCategory,
     "financial_analyst_prompt": FinancialAnalystSemanticCategory,
