@@ -18,16 +18,16 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
 
 WORKDIR /app
 
+# Determine whether to include GPU dependencies
+ARG GPU="false"
+ARG SCM_VERSION="0.0.0"
+ENV SETUPTOOLS_SCM_PRETEND_VERSION=${SCM_VERSION}
+
 # Copy dependency files
 COPY pyproject.toml uv.lock ./
 COPY packages/ packages/
 COPY src/ src/
 COPY README.md README.md
-
-# Determine whether to include GPU dependencies
-ARG GPU="false"
-ARG SCM_VERSION="0.0.0"
-ENV SETUPTOOLS_SCM_PRETEND_VERSION=${SCM_VERSION}
 
 # Install dependencies into a virtual environment, but NOT the project itself
 RUN --mount=type=cache,target=/root/.cache/uv \

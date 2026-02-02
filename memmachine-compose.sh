@@ -852,6 +852,8 @@ build_image() {
     local name=""
     local force="false"
     local gpu="false" # default to false
+    local platform="linux/amd64" # default to amd64
+    local push="false"
     local reply=""
     local key=""
     local value=""
@@ -884,6 +886,12 @@ build_image() {
             --gpu)
                 gpu="$value"
                 ;;
+            --platform)
+                platform="$value"
+                ;;
+            --push)
+                push="true"
+                ;;
             -f|--force)
                 force="true"
                 ;;
@@ -915,7 +923,7 @@ build_image() {
     name="${name//+/_}"
     
     # Generate PEP 440 compliant version from git describe
-    # Step 1: Get git describe output (e.g., "0.2.3-12-g2b5fd82" or "v0.2.3-12-g2b5fd82")
+    # Step 1: Try to get git describe with tags (e.g., "0.2.3-12-g2b5fd82" or "v0.2.3-12-g2b5fd82")
     local git_version=$(git describe --tags --always 2>/dev/null || echo "")
     
     # Step 2: Convert to PEP 440 format
@@ -924,14 +932,68 @@ build_image() {
     # - Use extended regex (-E) for better compatibility across systems
     local scm_version=""
     if [[ -n "$git_version" ]]; then
-        scm_version=$(echo "$git_version" | sed -E 's/^v//;s/-([0-9]+)-g([0-9a-f]+)/.dev\1+g\2/')
+        # Check if it's a valid version format (contains numbers and dots) or just a commit hash
+        if [[ "$git_version" =~ ^v?[0-9] ]]; then
+            # It's a version tag, convert to PEP 440
+            scm_version=$(echo "$git_version" | sed -E 's/^v//;s/-([0-9]+)-g([0-9a-f]+)/.dev\1+g\2/')
+        else
+            # It's just a commit hash (no tags), use default version
+            scm_version="0.0.0"
+        fi
     fi
     
-    # Step 3: Ensure we have a valid version (fallback to 0.0.0 if empty)
-    scm_version="${scm_version:-0.0.0}"
+    # Step 3: Ensure we have a valid version (fallback to 0.0.0 if empty or invalid)
+    # Validate that scm_version looks like a version (contains at least one dot)
+    if [[ -z "$scm_version" ]] || [[ ! "$scm_version" =~ \. ]]; then
+        scm_version="0.0.0"
+    fi
     
-    print_info "Building $name with GPU=$gpu (SCM_VERSION: $scm_version)"
-    docker build --build-arg GPU=$gpu --build-arg SCM_VERSION="$scm_version" -t "$name" .
+    # Setup buildx if needed
+    if ! docker buildx ls | grep -q "memmachine_builder.*running"; then
+        print_info "Setting up Docker Buildx builder..."
+        docker buildx create --name memmachine_builder --use --driver-opt "image=moby/buildkit:v0.12.0" 2>/dev/null || true
+        docker buildx inspect --bootstrap memmachine_builder >/dev/null 2>&1 || true
+    fi
+    
+    # Build arguments
+    local build_args=""
+    if [[ "$gpu" == "true" ]]; then
+        build_args="--build-arg GPU=true"
+    fi
+    
+    # Build command
+    local build_cmd="docker buildx build"
+    build_cmd="$build_cmd --platform $platform"
+    build_cmd="$build_cmd $build_args"
+    build_cmd="$build_cmd --build-arg SCM_VERSION=$scm_version"
+    build_cmd="$build_cmd --tag $name"
+    
+    if [[ "$force" == "true" ]]; then
+        build_cmd="$build_cmd --no-cache"
+    fi
+    
+    if [[ "$push" == "true" ]]; then
+        build_cmd="$build_cmd --push"
+    else
+        build_cmd="$build_cmd --load"
+    fi
+    
+    build_cmd="$build_cmd ."
+    
+    print_info "Building $name with GPU=$gpu, platform=$platform (SCM_VERSION: $scm_version)"
+    if [[ "$push" == "true" ]]; then
+        print_info "Will push to registry after build"
+    fi
+    
+    # Execute build
+    eval $build_cmd
+    
+    if [[ "$push" == "true" ]]; then
+        print_success "Image built and pushed successfully: $name"
+    else
+        print_success "Image built successfully: $name"
+        print_info "To push the image, run: docker push $name"
+    fi
 }
 
 # Main execution
@@ -995,7 +1057,7 @@ case "${1:-}" in
         echo "  restart                                                Restart MemMachine services"
         echo "  logs                                                   Show service logs"
         echo "  clean                                                  Remove all services and data"
-        echo "  build [<image>:<tag>] [--gpu true/false] [-f|--force]  Build a custom MemMachine image"
+        echo "  build [<image>:<tag>] [--gpu true/false] [--platform <platform>] [--push] [-f|--force]  Build a custom MemMachine image"
         echo "  help                                                   Show this help message"
         echo ""
         echo "Provider Options:"
