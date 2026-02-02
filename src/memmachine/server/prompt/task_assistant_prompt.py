@@ -1,8 +1,8 @@
-"""Prompt template for life-oriented personal context semantic memory extraction.
+"""Prompt template for task-oriented structured facts semantic memory extraction.
 
-This prompt focuses on extracting personal characteristics, interests, lifestyle patterns,
-goals, and life context that help provide personalized life guidance and advice.
-This complements the structured facts extracted by task_facts_prompt.
+This prompt focuses on extracting stable, structured facts needed for task completion:
+contact information, account details, identities, preferences, relationships, and services.
+These facts are typically listed at the beginning of a session for quick reference.
 """
 
 from memmachine.semantic_memory.semantic_model import (
@@ -10,59 +10,64 @@ from memmachine.semantic_memory.semantic_model import (
     StructuredSemanticPrompt,
 )
 
-# Life-oriented personal context tags
-life_context_tags: dict[str, str] = {
-    # === Life & Personal Summary ===
-    "interests": "Interests and hobbies: what the user enjoys doing, passions, recreational activities, creative pursuits, learning interests, entertainment preferences, cultural interests, things the user likes to do in their free time.",
-    "lifestyle": "Lifestyle patterns and habits: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance, stress management, leisure activities, travel patterns, time management style, how the user lives their daily life.",
-    "goals": "Goals and aspirations: short-term and long-term goals (career, personal development, health, financial, relationship, educational), life vision, desired achievements, long-term plans, what the user wants to become or accomplish.",
-    "personality": "Personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, how the user typically behaves and interacts.",
-    "life_situation": "Current life circumstances and context: living situation, family structure, work situation, major life events, transitions, challenges, opportunities, current stage of life, what's happening in the user's life right now.",
+# Task-oriented structured facts tags
+task_assistant_tags: dict[str, str] = {
+    # === Core Identity & Contact ===
+    "basics": "Basic personal information: full name, date of birth, gender, age, marital status, education level, occupation, and other basic demographic information.",
+    "contacts": "Contact information and addresses: phone numbers, email addresses, permanent addresses, mailing addresses, work addresses, emergency contacts.",
+    "identities": "Stable identification numbers and documents: social security numbers (last 4 digits), driver's license numbers, passport numbers, tax IDs, employee IDs, student IDs, insurance member IDs.",
+    
+    # === Financial & Accounts ===
+    "accounts": "Account information: account numbers, account holder names, account types, bank account details, credit card information (last 4 digits, card type), subscription account IDs, service account numbers, membership numbers, customer IDs, loyalty program numbers.",
+    
+    # === Preferences & Settings ===
+    "preferences": "User preferences: preferred contact methods (phone, email, text), communication style preferences, service preferences (appointment times, service providers), payment methods, dietary preferences, accessibility needs, language preferences, notification preferences, time zone, preferred meeting formats.",
+    
+    # === Relationships & Network ===
+    "relationships": "Personal relationships and family contacts: family members (spouse, children, parents, siblings), close friends, business contacts, authorized representatives, people the user frequently interacts with or makes decisions on behalf of. Include relationship context (e.g., 'my wife Sarah', 'my son John') and relevant contact information or identifiers.",
+    "services": "Service providers and professional contacts: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, therapist, personal trainer, and other professional service providers. Include contact information, specialties, and relevant details for these service providers.",
 }
 
-# Optimized description for life-oriented personal context
-life_context_description = """
-    You are extracting personal context and characteristics from conversations with a life advisor assistant.
-    This information helps provide personalized life guidance, understand user's goals, values, and constraints,
-    and offer meaningful advice across sessions.
+# Optimized description for task-oriented structured facts
+task_assistant_description = """
+    You are extracting structured, factual user information from conversations with a task-oriented assistant.
+    This information is used to efficiently complete user requests and is typically referenced at the start of sessions.
     
     IMPORTANT CONTEXT:
     - Episodic memories already contain refined descriptions and atomic claims, including all historical events and temporary states
     - Semantic memory is for STABLE, REUSABLE user information that persists across sessions
-    - Structured facts (contacts, accounts, identities) are extracted separately by task_facts_prompt
-    - Your job is to extract personal characteristics that help the agent:
-      * Provide personalized life advice and recommendations
-      * Understand the user's context, goals, values, and constraints
-      * Recognize patterns in user's interests, lifestyle, and personality
-      * Offer meaningful guidance based on user's life situation
+    - Your job is to extract structured facts that help the agent:
+      * Quickly access contact information, account details, and identities
+      * Remember user preferences for service interactions
+      * Access relationship and service provider information
+      * Complete tasks efficiently without asking for repeated information
     
     EXTRACTION GUIDELINES:
-    - Extract personal characteristics, interests, lifestyle patterns, goals, and life context
+    - Extract ALL structured facts, even basic ones like names, contact details, account numbers
     - Focus on information that is STABLE and REUSABLE across sessions
-    - Use descriptive feature names that capture the essence of the characteristic (e.g., "PRIMARY INTEREST", "WORK LIFE BALANCE STYLE", "CAREER GOAL", "COMMUNICATION STYLE")
-    - Extract patterns and recurring themes that indicate life context
-    - Include information that helps the agent understand the user deeply, not just complete tasks
+    - Use clear, concise feature names that directly describe the fact (e.g., "FULL NAME", "EMAIL", "PHONE NUMBER", "BANK ACCOUNT LAST4")
+    - For account numbers and IDs, store only the last 4 digits or identifiers (not full numbers)
+    - Include relationship context when extracting family/contact information
+    - Extract service provider information with contact details and specialties
     
     FEATURE NAMING GUIDELINES:
-    - Use descriptive, meaningful feature names that capture the personal characteristic
-    - Use UPPERCASE letters with SPACES between words (e.g., "PRIMARY INTEREST", "CAREER GOAL")
+    - Use descriptive, specific feature names that clearly identify the information type
+    - Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL ADDRESS")
     - Be concise but clear - use full words, not abbreviations
     - Examples of good feature names:
-      * "PRIMARY INTEREST" or "HOBBY" (not "INTEREST" or "LIKES")
-      * "WORK LIFE BALANCE STYLE" (not "BALANCE" or "LIFESTYLE")
-      * "CAREER GOAL" or "LONG TERM GOAL" (not "GOAL" or "ASPIRATION")
-      * "COMMUNICATION STYLE" (not "STYLE" or "PERSONALITY")
-      * "DECISION MAKING STYLE" (not "DECISION" or "APPROACH")
-      * "STRESS MANAGEMENT APPROACH" (not "STRESS" or "MANAGEMENT")
-      * "EXERCISE HABIT" or "FITNESS ROUTINE" (not "EXERCISE" or "ROUTINE")
-      * "SLEEP PATTERN" (not "SLEEP" or "PATTERN")
-      * "CURRENT LIFE STAGE" (not "STAGE" or "SITUATION")
-      * "PERSONALITY TYPE" (not "PERSONALITY" or "TYPE")
-      * "HEALTH GOAL" (not "HEALTH" or "GOAL")
-    - Avoid generic names like "INFO", "DATA", "DETAIL" - be specific about the characteristic
-    - For interests: use format like "PRIMARY INTEREST", "HOBBY", "PASSION"
-    - For goals: use format like "CAREER GOAL", "HEALTH GOAL", "FINANCIAL GOAL"
-    - For personality: use format like "COMMUNICATION STYLE", "DECISION MAKING STYLE", "INTROVERSION LEVEL"
+      * "FULL NAME" (not "NAME" or "USER NAME")
+      * "EMAIL" or "PRIMARY EMAIL" (not "CONTACT EMAIL")
+      * "PHONE NUMBER" or "MOBILE PHONE" (not "PHONE" or "PHONE_NUMBER")
+      * "BANK ACCOUNT LAST4" (not "ACCOUNT" or "BANK")
+      * "CREDIT CARD LAST4" (not "CARD" or "PAYMENT METHOD")
+      * "EMERGENCY CONTACT NAME" (not "EMERGENCY" or "CONTACT")
+      * "PREFERRED PAYMENT METHOD" (not "PAYMENT" or "PREFERENCE")
+      * "TIMEZONE" (not "TZ" or "TIME ZONE")
+      * "DATE OF BIRTH" (not "DOB" or "BIRTHDATE")
+      * "HOME ADDRESS" (not "ADDRESS" or "HOME")
+    - Avoid generic names like "INFO", "DATA", "DETAIL" - be specific
+    - For relationships: use format like "SPOUSE NAME", "CHILD NAME", "PARENT NAME"
+    - For services: use format like "DOCTOR NAME", "LAWYER CONTACT", "ACCOUNTANT EMAIL"
     
     DO NOT EXTRACT (These belong in episodic memory, not semantic memory):
     - Historical events or past actions (e.g., "booked a flight on 2026-01-23", "visited Paris last summer")
@@ -71,32 +76,31 @@ life_context_description = """
     - Time-specific information that will become outdated (e.g., "currently traveling", "has a meeting tomorrow")
     - Travel history, booking history, transaction history, or any event-based information
     - Temporary preferences or context-dependent choices (e.g., "wants pizza today" vs. stable "prefers Italian food")
-    - Structured facts like contact information, account numbers, identities (these are handled by task_facts_prompt)
     
-    ONLY EXTRACT STABLE PERSONAL CHARACTERISTICS:
-    - User's interests and hobbies that persist over time
-    - Lifestyle patterns and habits (daily routines, exercise, sleep, work-life balance)
-    - Goals and aspirations (career, personal development, health, financial)
-    - Personality traits and characteristics (communication style, decision-making, introversion/extroversion)
-    - Life situation and context (living situation, family structure, work situation, life stage)
+    ONLY EXTRACT STABLE STRUCTURED FACTS:
+    - Permanent contact information (phone, email, addresses)
+    - Stable account information (account numbers, IDs - last 4 digits only)
+    - Long-term preferences (communication methods, service preferences, payment methods)
+    - Relationship information that remains stable (family members, close contacts)
+    - Service provider relationships with contact information
     
     PRIORITIZE:
-    1. Personal characteristics that affect life guidance (personality, life_situation)
-    2. Goals and aspirations (goals)
-    3. Lifestyle patterns and habits (lifestyle)
-    4. Interests and hobbies (interests)
+    1. Contact information needed for task completion (contacts, basics)
+    2. Account and identity information (accounts, identities)
+    3. User preferences that affect task execution (preferences)
+    4. Relationship and service provider information (relationships, services)
     
-    Be thorough but precise. Extract characteristics that help the agent provide personalized
-    life advice and understand the user deeply. Remember: if it's a one-time event or temporary
-    state, it belongs in episodic memory, not semantic memory. Structured facts belong in task_facts_prompt.
+    Be precise and structured. Extract facts that can be quickly referenced at the start of sessions
+    to complete tasks efficiently. Remember: if it's a one-time event or temporary state,
+    it belongs in episodic memory, not semantic memory.
 """
 
-LifeContextSemanticCategory = SemanticCategory(
-    name="profile_life_context",
+TaskAssistantSemanticCategory = SemanticCategory(
+    name="profile",
     prompt=StructuredSemanticPrompt(
-        tags=life_context_tags,
-        description=life_context_description,
+        tags=task_assistant_tags,
+        description=task_assistant_description,
     ),
 )
 
-SEMANTIC_TYPE = LifeContextSemanticCategory
+SEMANTIC_TYPE = TaskAssistantSemanticCategory
