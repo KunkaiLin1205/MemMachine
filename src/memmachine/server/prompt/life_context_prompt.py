@@ -2,7 +2,7 @@
 
 This prompt focuses on extracting personal characteristics, interests, lifestyle patterns,
 goals, and life context that help provide personalized life guidance and advice.
-This complements the structured facts extracted by task_facts_prompt.
+This complements structured facts extraction by focusing on personal insights rather than concrete data.
 """
 
 from memmachine.semantic_memory.semantic_model import (
@@ -26,89 +26,145 @@ life_context_description = """
     personal understanding that enables the agent to provide meaningful life guidance, understand 
     the user's motivations, and offer personalized advice that resonates with the user's values and goals.
     
-    CRITICAL DISTINCTION:
-    - You extract WHY and HOW the user thinks, feels, and behaves (motivations, patterns, characteristics)
-    - You do NOT extract WHAT the user has (facts, data, contact info, account numbers)
-    - Think of yourself as building a psychological profile and life context understanding, not a contact book
+    YOUR ROLE AND DISTINCTION
     
-    IMPORTANT CONTEXT:
+    What You Extract:
+    - WHY and HOW the user thinks, feels, and behaves (motivations, patterns, characteristics)
+    - Personal insights, values, goals, and life context
+    - Psychological profile and life understanding
+    
+    What You Do NOT Extract:
+    - WHAT the user has (facts, data, contact info, account numbers)
+    - Concrete structured facts (these are handled separately)
+    - Historical events or temporary states (these belong in episodic memory)
+    
+    Think of yourself as: Building a psychological profile and life context understanding, not a contact book.
+    
+    Important Context:
     - Episodic memories already contain refined descriptions and atomic claims, including all historical events and temporary states
     - Semantic memory is for STABLE, REUSABLE user information that persists across sessions
-    - Concrete facts (contacts, accounts, identities) are extracted separately by task_facts_prompt
-    - Your job is to extract personal insights that help the agent:
-      * Understand the user's deeper motivations and values
-      * Recognize patterns in how the user approaches life decisions
-      * Provide advice that aligns with the user's personality and life situation
-      * Offer guidance that considers the user's goals, constraints, and life context
-      * Understand what drives the user and what matters to them
+    - You will receive an OLD_PROFILE containing existing features - ALWAYS check this first before creating new features
     
-    EXTRACTION GUIDELINES:
-    - Extract personal characteristics, motivations, patterns, and life context
-    - Focus on information that is STABLE and REUSABLE across sessions
-    - Extract INSIGHTS and UNDERSTANDING, not just facts
-    - Use descriptive feature names that capture the essence of the characteristic (e.g., "PRIMARY INTEREST", "WORK LIFE BALANCE STYLE", "CAREER GOAL", "COMMUNICATION STYLE")
-    - Extract patterns and recurring themes that reveal life context
-    - Include information that helps the agent understand the user deeply, not just complete tasks
-    - Look for underlying motivations, values, and personality traits
+    WHAT TO EXTRACT
     
-    WHAT TO EXTRACT (Personal Insights and Characteristics):
-    - Interests and passions: what the user enjoys, what motivates them, what they find meaningful
-    - Lifestyle patterns: how the user lives daily life, routines, habits, work-life balance approach
-    - Goals and aspirations: what the user wants to achieve, life vision, desired outcomes
-    - Personality traits: how the user communicates, makes decisions, handles stress, interacts with others
-    - Life situation context: current life stage, major transitions, challenges, opportunities, family/work context
-    - Values and priorities: what matters to the user, what drives their decisions
-    - Behavioral patterns: how the user typically responds to situations, manages time, handles relationships
+    Extract These Personal Insights and Characteristics:
     
-    FEATURE NAMING GUIDELINES:
-    - Use descriptive, meaningful feature names that capture the personal characteristic or insight
-    - Use UPPERCASE letters with SPACES between words (e.g., "PRIMARY INTEREST", "CAREER GOAL")
-    - Be concise but clear - use full words, not abbreviations
-    - Examples of good feature names:
-      * "PRIMARY INTEREST" or "PASSION" (not "INTEREST" or "LIKES")
-      * "WORK LIFE BALANCE STYLE" (not "BALANCE" or "LIFESTYLE")
-      * "CAREER GOAL" or "LONG TERM GOAL" (not "GOAL" or "ASPIRATION")
-      * "COMMUNICATION STYLE" (not "STYLE" or "PERSONALITY")
-      * "DECISION MAKING STYLE" (not "DECISION" or "APPROACH")
-      * "STRESS MANAGEMENT APPROACH" (not "STRESS" or "MANAGEMENT")
-      * "EXERCISE HABIT" or "FITNESS ROUTINE" (not "EXERCISE" or "ROUTINE")
-      * "SLEEP PATTERN" (not "SLEEP" or "PATTERN")
-      * "CURRENT LIFE STAGE" (not "STAGE" or "SITUATION")
-      * "PERSONALITY TYPE" (not "PERSONALITY" or "TYPE")
-      * "HEALTH GOAL" (not "HEALTH" or "GOAL")
-      * "CORE VALUE" or "PRIORITY" (not "VALUE" or "IMPORTANT")
-    - Avoid generic names like "INFO", "DATA", "DETAIL" - be specific about the characteristic
-    - For interests: use format like "PRIMARY INTEREST", "HOBBY", "PASSION"
-    - For goals: use format like "CAREER GOAL", "HEALTH GOAL", "FINANCIAL GOAL", "LIFE VISION"
-    - For personality: use format like "COMMUNICATION STYLE", "DECISION MAKING STYLE", "INTROVERSION LEVEL", "STRESS RESPONSE PATTERN"
+    Interests and Passions:
+    - What the user enjoys, what motivates them, what they find meaningful
+    - Examples: hobbies, creative pursuits, learning interests, entertainment preferences
     
-    DO NOT EXTRACT (These belong elsewhere):
+    Lifestyle Patterns:
+    - How the user lives daily life, routines, habits, work-life balance approach
+    - Examples: daily routines, sleep patterns, exercise habits, dietary habits, stress management
+    
+    Goals and Aspirations:
+    - What the user wants to achieve, life vision, desired outcomes
+    - Examples: career goals, personal development goals, health goals, financial goals, life vision
+    
+    Personality Traits:
+    - How the user communicates, makes decisions, handles stress, interacts with others
+    - Examples: communication style, decision-making style, introversion/extroversion, emotional stability
+    
+    Life Situation Context:
+    - Current life stage, major transitions, challenges, opportunities, family/work context
+    - Examples: living situation, family structure, work situation, current stage of life
+    
+    Values and Priorities:
+    - What matters to the user, what drives their decisions
+    - Examples: core values, priorities, what the user finds important
+    
+    Behavioral Patterns:
+    - How the user typically responds to situations, manages time, handles relationships
+    - Examples: response patterns, time management style, relationship handling
+    
+    Do NOT Extract:
     - Historical events or past actions (episodic memory)
     - Temporary states or pending actions (episodic memory)
-    - Concrete facts like names, phone numbers, email addresses, account numbers (task_facts_prompt)
-    - Identity documents or account identifiers (task_facts_prompt)
-    - Service provider contact information (task_facts_prompt)
+    - Concrete facts like names, phone numbers, email addresses, account numbers (these are structured facts, not personal insights)
+    - Identity documents or account identifiers (these are structured facts, not personal insights)
+    - Service provider contact information (these are structured facts, not personal insights)
     - One-time preferences or context-dependent choices (episodic memory)
     
-    ONLY EXTRACT PERSONAL INSIGHTS AND CHARACTERISTICS:
-    - Stable interests and passions that reveal what the user values
-    - Lifestyle patterns that show how the user approaches daily life
-    - Goals and aspirations that reveal what the user wants to achieve
-    - Personality traits that reveal how the user thinks and behaves
-    - Life situation context that reveals the user's current circumstances and stage
-    - Values and motivations that reveal what drives the user
-    - Behavioral patterns that reveal how the user typically responds
+    FEATURE NAMING RULES
     
-    PRIORITIZE:
+    Format Rules:
+    - Use UPPERCASE letters with SPACES between words (e.g., "PRIMARY INTEREST", "CAREER GOAL")
+    - Use full words, not abbreviations
+    - Be descriptive and meaningful - capture the essence of the characteristic
+    
+    Standard Feature Names:
+    
+    Interests:
+    - "PRIMARY INTEREST" (not "INTEREST", "LIKES")
+    - "PASSION" (not "HOBBY" if already using "PRIMARY INTEREST")
+    - "HOBBY" (for secondary interests)
+    
+    Lifestyle:
+    - "WORK LIFE BALANCE STYLE" (not "BALANCE", "LIFESTYLE")
+    - "EXERCISE HABIT" or "FITNESS ROUTINE" (not "EXERCISE", "ROUTINE")
+    - "SLEEP PATTERN" (not "SLEEP", "PATTERN")
+    
+    Goals:
+    - "CAREER GOAL" (not "GOAL", "ASPIRATION")
+    - "LONG TERM GOAL" (for general long-term goals)
+    - "HEALTH GOAL" (not "HEALTH")
+    - "FINANCIAL GOAL"
+    - "LIFE VISION"
+    
+    Personality:
+    - "COMMUNICATION STYLE" (not "STYLE", "PERSONALITY")
+    - "DECISION MAKING STYLE" (not "DECISION", "APPROACH")
+    - "STRESS MANAGEMENT APPROACH" (not "STRESS", "MANAGEMENT")
+    - "INTROVERSION LEVEL"
+    - "STRESS RESPONSE PATTERN"
+    - "PERSONALITY TYPE"
+    
+    Life Context:
+    - "CURRENT LIFE STAGE" (not "STAGE", "SITUATION")
+    - "CORE VALUE" or "PRIORITY" (not "VALUE", "IMPORTANT")
+    
+    General Rules:
+    - Avoid generic names like "INFO", "DATA", "DETAIL" - be specific about the characteristic
+    - If you see a feature name in OLD_PROFILE that means the same thing, USE THAT EXACT NAME - do not create a synonym
+    
+    AVOIDING DUPLICATES
+    
+    Before Adding a New Feature:
+    1. ALWAYS check OLD_PROFILE for existing features with the same or similar meaning
+    2. If a similar feature exists, USE the existing feature name exactly as it appears
+    3. Do NOT create a new feature with a different name for the same information
+    
+    Updating Existing Features:
+    - Use UPDATE commands (delete old + add new) to modify existing features
+    - Do NOT use ADD commands to create duplicates
+    - Example: If OLD_PROFILE has "PRIMARY INTEREST" and new message mentions "main hobby", 
+      UPDATE "PRIMARY INTEREST" instead of creating "MAIN HOBBY"
+    
+    Reusing Feature Names:
+    - If you see a feature name in OLD_PROFILE that means the same thing, USE THAT EXACT NAME
+    - Do not create synonyms or variations
+    - Check OLD_PROFILE first - reuse existing feature names when the information matches
+    
+    EXTRACTION PROCESS
+    
+    Step-by-Step Process:
+    1. Check OLD_PROFILE for existing features
+    2. Identify what personal insights are new or need updating
+    3. Use standard feature names (see FEATURE NAMING RULES above)
+    4. Extract INSIGHTS and UNDERSTANDING, not just facts
+    5. Extract patterns and recurring themes that reveal life context
+    6. Look for underlying motivations, values, and personality traits
+    7. Include information that helps the agent understand the user deeply
+    
+    Priority Order:
     1. Personal characteristics that affect life guidance (personality, life_situation) - most important for advice
     2. Goals and aspirations (goals) - essential for providing relevant guidance
     3. Lifestyle patterns and habits (lifestyle) - important for understanding daily life
     4. Interests and hobbies (interests) - helpful for personalization
     
-    Be thorough and insightful. Extract characteristics that help the agent understand the user deeply
-    and provide meaningful life guidance. Focus on WHY and HOW, not WHAT.
-    Remember: if it's a one-time event or temporary state, it belongs in episodic memory, not semantic memory.
-    Concrete facts belong in task_facts_prompt - you focus on personal insights and understanding.
+    Remember: Extract stable, reusable personal insights that help the agent understand the user 
+    deeply and provide meaningful life guidance. Focus on WHY and HOW, not WHAT. If it's a 
+    one-time event or temporary state, it belongs in episodic memory, not semantic memory.
 """
 
 LifeContextSemanticCategory = SemanticCategory(

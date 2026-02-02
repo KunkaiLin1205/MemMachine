@@ -935,7 +935,7 @@ build_image() {
         # Check if it's a valid version format (contains numbers and dots) or just a commit hash
         if [[ "$git_version" =~ ^v?[0-9] ]]; then
             # It's a version tag, convert to PEP 440
-            scm_version=$(echo "$git_version" | sed -E 's/^v//;s/-([0-9]+)-g([0-9a-f]+)/.dev\1+g\2/')
+        scm_version=$(echo "$git_version" | sed -E 's/^v//;s/-([0-9]+)-g([0-9a-f]+)/.dev\1+g\2/')
         else
             # It's just a commit hash (no tags), use default version
             scm_version="0.0.0"
