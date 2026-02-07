@@ -45,6 +45,12 @@ task_assistant_description = """
     - Semantic memory is for STABLE, REUSABLE user information that persists across sessions
     - You will receive an OLD_PROFILE containing existing features - ALWAYS check this first before creating new features
     
+    CRITICAL TAG RULES:
+    - You MUST ONLY use the tags defined in the tags list below
+    - DO NOT create new tags - use one of the existing tags: basics, contacts, identities, accounts, preferences, relationships, services
+    - If information doesn't fit perfectly, choose the closest matching tag (e.g., financial issues → "accounts" or "preferences")
+    - Financial-related information should use "accounts" (for account details) or "preferences" (for financial preferences)
+    
     WHAT TO EXTRACT
     
     Extract These Stable Structured Facts:
@@ -132,12 +138,13 @@ task_assistant_description = """
     Step-by-Step Process:
     1. Check OLD_PROFILE for existing features
     2. Identify what information is new or needs updating
-    3. Use standard feature names (see FEATURE NAMING RULES above)
-    4. Include ownership prefix if information belongs to someone else
-    5. Extract ALL structured facts, even basic ones like names and contact details
-    6. For account numbers and IDs, store only the last 4 digits
-    7. Include relationship context when extracting family/contact information
-    8. Extract service provider information with contact details and specialties
+    3. **CRITICAL: Select the correct tag from the defined list (basics, contacts, identities, accounts, preferences, relationships, services) - DO NOT create new tags**
+    4. Use standard feature names (see FEATURE NAMING RULES above)
+    5. Include ownership prefix if information belongs to someone else
+    6. Extract ALL structured facts, even basic ones like names and contact details
+    7. For account numbers and IDs, store only the last 4 digits
+    8. Include relationship context when extracting family/contact information
+    9. Extract service provider information with contact details and specialties
     
     Priority Order:
     1. Contact information needed for task completion (contacts, basics)

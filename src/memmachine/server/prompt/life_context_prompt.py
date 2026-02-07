@@ -45,6 +45,16 @@ life_context_description = """
     - Semantic memory is for STABLE, REUSABLE user information that persists across sessions
     - You will receive an OLD_PROFILE containing existing features - ALWAYS check this first before creating new features
     
+    CRITICAL TAG RULES:
+    - You MUST ONLY use the tags defined in the tags list below
+    - DO NOT create new tags - use one of the existing tags: interests, lifestyle, goals, personality, life_situation
+    - If information doesn't fit perfectly, choose the closest matching tag:
+      * Personal interests/hobbies → "interests"
+      * Daily routines/habits/patterns → "lifestyle"
+      * Aspirations/objectives/plans → "goals"
+      * Character traits/behavioral patterns → "personality"
+      * Current circumstances/context → "life_situation"
+    
     WHAT TO EXTRACT
     
     Extract These Personal Insights and Characteristics:
@@ -150,11 +160,12 @@ life_context_description = """
     Step-by-Step Process:
     1. Check OLD_PROFILE for existing features
     2. Identify what personal insights are new or need updating
-    3. Use standard feature names (see FEATURE NAMING RULES above)
-    4. Extract INSIGHTS and UNDERSTANDING, not just facts
-    5. Extract patterns and recurring themes that reveal life context
-    6. Look for underlying motivations, values, and personality traits
-    7. Include information that helps the agent understand the user deeply
+    3. **CRITICAL: Select the correct tag from the defined list (interests, lifestyle, goals, personality, life_situation) - DO NOT create new tags**
+    4. Use standard feature names (see FEATURE NAMING RULES above)
+    5. Extract INSIGHTS and UNDERSTANDING, not just facts
+    6. Extract patterns and recurring themes that reveal life context
+    7. Look for underlying motivations, values, and personality traits
+    8. Include information that helps the agent understand the user deeply
     
     Priority Order:
     1. Personal characteristics that affect life guidance (personality, life_situation) - most important for advice
