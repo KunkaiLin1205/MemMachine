@@ -4,10 +4,12 @@
 FROM python:3.12-slim-trixie AS builder
 
 # Update OS and Python/PIP Packages
-# Install curl
+# Install curl (with retry, fix-broken, and fix-missing to handle network issues)
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl && \
+    (apt-get install -y --fix-broken --fix-missing curl || \
+    (sleep 3 && apt-get update && apt-get install -y --fix-broken --fix-missing curl || \
+    (sleep 5 && apt-get update && apt-get install -y --fix-broken --fix-missing curl))) && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
@@ -54,10 +56,12 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 FROM python:3.12-slim-trixie AS final
 
 # Update OS and Python/PIP Packages
-# Install curl
+# Install curl (with retry, fix-broken, and fix-missing to handle network issues)
 RUN apt-get update && \
     apt-get upgrade -y && \
-    apt-get install -y curl && \
+    (apt-get install -y --fix-broken --fix-missing curl || \
+    (sleep 3 && apt-get update && apt-get install -y --fix-broken --fix-missing curl || \
+    (sleep 5 && apt-get update && apt-get install -y --fix-broken --fix-missing curl))) && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 

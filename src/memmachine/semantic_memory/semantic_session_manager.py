@@ -1,10 +1,13 @@
 """Manage semantic memory sessions and associated lifecycle hooks."""
 
 import asyncio
+import logging
 from enum import Enum
 from typing import Final, Protocol, runtime_checkable
 
 from pydantic import InstanceOf
+
+logger = logging.getLogger(__name__)
 
 from memmachine.common.episode_store import EpisodeIdT
 from memmachine.common.filter.filter_parser import And, Comparison, FilterExpr
@@ -91,10 +94,25 @@ class SemanticSessionManager:
         role_id = session_data.role_profile_id
         session_id = session_data.session_id
 
+        generated_user_id = _USER_ID_PREFIX + user_id if user_id else None
+        generated_role_id = _ROLE_ID_PREFIX + role_id if role_id else None
+        generated_session_id = _SESSION_ID_PREFIX + session_id if session_id else None
+
+        logger.debug(
+            "_generate_session_data - input user_id: %s, role_id: %s, session_id: %s -> "
+            "generated user_profile_id: %s, role_profile_id: %s, session_id: %s",
+            user_id,
+            role_id,
+            session_id,
+            generated_user_id,
+            generated_role_id,
+            generated_session_id,
+        )
+
         return _SessionDataImpl(
-            _user_profile_id=_USER_ID_PREFIX + user_id if user_id else None,
-            _session_id=_SESSION_ID_PREFIX + session_id if session_id else None,
-            _role_profile_id=_ROLE_ID_PREFIX + role_id if role_id else None,
+            _user_profile_id=generated_user_id,
+            _session_id=generated_session_id,
+            _role_profile_id=generated_role_id,
         )
 
     @classmethod
@@ -136,6 +154,14 @@ class SemanticSessionManager:
             return
 
         set_ids = self._get_set_ids(session_data, memory_type)
+        logger.info(
+            "SemanticSessionManager.add_message - episode_ids: %s, "
+            "user_profile_id (raw): %s, set_ids: %s, memory_type: %s",
+            episode_ids,
+            session_data.user_profile_id,
+            set_ids,
+            [m.value for m in memory_type],
+        )
 
         if len(episode_ids) == 1:
             await self._semantic_service.add_message_to_sets(episode_ids[0], set_ids)
@@ -308,6 +334,11 @@ class SemanticSessionManager:
             if role_id is not None:
                 s.append(role_id)
 
+        logger.debug(
+            "_get_set_ids - isolation_level: %s, set_ids: %s",
+            [i.value for i in isolation_level],
+            s,
+        )
         return s
 
     @staticmethod

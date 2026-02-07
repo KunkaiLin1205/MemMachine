@@ -1,10 +1,13 @@
 """API v2 service implementations."""
 
+import logging
 from dataclasses import dataclass
 
 from fastapi import Request
 
 from memmachine import MemMachine
+
+logger = logging.getLogger(__name__)
 from memmachine.common.api import MemoryType as MemoryTypeE
 from memmachine.common.api.spec import (
     AddMemoriesSpec,
@@ -42,10 +45,14 @@ class _SessionData:
 
     @property
     def user_profile_id(self) -> str | None:
+        # Return user_id without prefix - SemanticSessionManager._generate_session_data
+        # will add the "mem_user_" prefix automatically
         return self.user_id
 
     @property
     def role_profile_id(self) -> str | None:
+        # Return role_id without prefix - SemanticSessionManager._generate_session_data
+        # will add the "mem_role_" prefix automatically
         return self.role_id
 
     @property
@@ -76,7 +83,19 @@ def _extract_ids_from_messages(
     # If user_id is not provided, use project_id as user_id (one user per project)
     if user_id is None or user_id == "":
         user_id = project_id
+        logger.debug(
+            "user_id not provided in metadata, using project_id as user_id: %s",
+            user_id,
+        )
+    else:
+        logger.debug("Extracted user_id from metadata: %s", user_id)
 
+    logger.debug(
+        "Extracted IDs - user_id: %s, role_id: %s, session_id: %s",
+        user_id,
+        role_id,
+        session_id,
+    )
     return user_id, role_id, session_id
 
 
@@ -102,16 +121,33 @@ async def _add_messages_to(
         for message in spec.messages
     ]
 
+    session_data = _SessionData(
+        org_id=spec.org_id,
+        project_id=spec.project_id,
+        user_id=user_id,
+        role_id=role_id,
+        session_id_override=session_id,
+    )
+    logger.info(
+        "Adding %d episodes to memories - org_id: %s, project_id: %s, user_id: %s, "
+        "user_profile_id: %s, target_memories: %s",
+        len(episodes),
+        spec.org_id,
+        spec.project_id,
+        user_id,
+        session_data.user_profile_id,
+        [m.value for m in target_memories],
+    )
+
     episode_ids = await memmachine.add_episodes(
-        session_data=_SessionData(
-            org_id=spec.org_id,
-            project_id=spec.project_id,
-            user_id=user_id,
-            role_id=role_id,
-            session_id_override=session_id,
-        ),
+        session_data=session_data,
         episode_entries=episodes,
         target_memories=target_memories,
+    )
+    logger.info(
+        "Added %d episodes, returned %d episode_ids",
+        len(episodes),
+        len(episode_ids),
     )
     return [AddMemoryResult(uid=e_id) for e_id in episode_ids]
 

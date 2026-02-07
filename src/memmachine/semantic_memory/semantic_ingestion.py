@@ -30,6 +30,17 @@ from memmachine.semantic_memory.storage.storage_base import SemanticStorage
 logger = logging.getLogger(__name__)
 
 
+def _get_isolation_type(set_id: str) -> str:
+    """Determine the isolation type from set_id prefix."""
+    if set_id.startswith("mem_session_"):
+        return "session"
+    elif set_id.startswith("mem_user_"):
+        return "user"
+    elif set_id.startswith("mem_role_"):
+        return "role"
+    return "unknown"
+
+
 class IngestionService:
     """
     Processes un-ingested history for each set_id and updates semantic features.
@@ -68,6 +79,7 @@ class IngestionService:
             raise ExceptionGroup("Failed to process set ids", errors)
 
     async def _process_single_set(self, set_id: str) -> None:  # noqa: C901
+        logger.info("Processing semantic ingestion for set_id: %s", set_id)
         resources = self._resource_retriever.get_resources(set_id)
 
         history_ids = await self._semantic_storage.get_history_messages(
@@ -76,18 +88,40 @@ class IngestionService:
             is_ingested=False,
         )
 
+        logger.info(
+            "Found %d uningested messages for set_id %s, "
+            "semantic_categories count: %d",
+            len(history_ids),
+            set_id,
+            len(resources.semantic_categories),
+        )
+
         if len(resources.semantic_categories) == 0:
-            logger.info(
-                "No semantic categories configured for set %s, skipping ingestion",
-                set_id,
-            )
+            # This is expected for session/role memory when only profile memory is configured
+            isolation_type = _get_isolation_type(set_id)
+            if isolation_type in ["session", "role"]:
+                logger.debug(
+                    "No semantic categories configured for %s set_id %s (expected when only profile memory is enabled). "
+                    "Messages will be marked as ingested.",
+                    isolation_type,
+                    set_id,
+                )
+            else:
+                logger.warning(
+                    "No semantic categories configured for set %s (type: %s), skipping ingestion. "
+                    "Messages will be marked as ingested.",
+                    set_id,
+                    isolation_type,
+                )
 
             await self._semantic_storage.mark_messages_ingested(
                 set_id=set_id,
                 history_ids=history_ids,
             )
+            return
 
         if len(history_ids) == 0:
+            logger.debug("No uningested messages for set_id %s, skipping", set_id)
             return
 
         raw_messages = await asyncio.gather(
@@ -104,6 +138,12 @@ class IngestionService:
         async def process_semantic_type(
             semantic_category: InstanceOf[SemanticCategory],
         ) -> None:
+            logger.debug(
+                "Processing semantic category '%s' for set_id %s with %d messages",
+                semantic_category.name,
+                set_id,
+                len(messages),
+            )
             for message in messages:
                 if message.uid is None:
                     logger.error(
@@ -125,6 +165,12 @@ class IngestionService:
                 features = await self._semantic_storage.get_feature_set(
                     filter_expr=filter_expr,
                 )
+                logger.debug(
+                    "Found %d existing features for set_id %s, category %s",
+                    len(features),
+                    set_id,
+                    semantic_category.name,
+                )
 
                 try:
                     commands = await llm_feature_update(
@@ -132,6 +178,12 @@ class IngestionService:
                         message_content=message.content,
                         model=resources.language_model,
                         update_prompt=semantic_category.prompt.update_prompt,
+                    )
+                    logger.debug(
+                        "LLM generated %d commands for message %s, category %s",
+                        len(commands),
+                        message.uid,
+                        semantic_category.name,
                     )
                 except Exception:
                     logger.exception(
@@ -150,6 +202,12 @@ class IngestionService:
                     category_name=semantic_category.name,
                     citation_id=message.uid,
                     embedder=resources.embedder,
+                )
+                logger.debug(
+                    "Applied %d commands for message %s, category %s",
+                    len(commands),
+                    message.uid,
+                    semantic_category.name,
                 )
 
                 mark_messages.append(message.uid)
@@ -170,13 +228,24 @@ class IngestionService:
         )
 
         if len(mark_messages) == 0:
+            logger.warning(
+                "No messages were successfully processed for set_id %s. "
+                "This may indicate LLM processing errors.",
+                set_id,
+            )
             return
 
+        logger.info(
+            "Marking %d messages as ingested for set_id %s",
+            len(mark_messages),
+            set_id,
+        )
         await self._semantic_storage.mark_messages_ingested(
             set_id=set_id,
             history_ids=mark_messages,
         )
 
+        logger.debug("Starting consolidation for set_id %s", set_id)
         await self._consolidate_set_memories_if_applicable(
             set_id=set_id,
             resources=resources,
