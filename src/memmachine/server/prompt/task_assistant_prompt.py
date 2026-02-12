@@ -24,8 +24,8 @@ task_assistant_tags: dict[str, str] = {
     "preferences": "User preferences: preferred contact methods (phone, email, text), communication style preferences, service preferences (appointment times, service providers), payment methods, dietary preferences, accessibility needs, language preferences, notification preferences, time zone, preferred meeting formats.",
     
     # === Relationships & Network ===
-    "relationships": "Personal relationships and family contacts: family members (spouse, children, parents, siblings), close friends, business contacts, authorized representatives, people the user frequently interacts with or makes decisions on behalf of. Include relationship context (e.g., 'my wife Sarah', 'my son John') and relevant contact information or identifiers. IMPORTANT: When storing contact information for family members or others, use feature names that include ownership (e.g., 'SPOUSE EMAIL', 'CHILD PHONE NUMBER', 'EMERGENCY CONTACT NAME').",
-    "services": "Service providers and professional contacts: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, therapist, personal trainer, and other professional service providers. Include contact information, specialties, and relevant details for these service providers. IMPORTANT: Use feature names that include the service provider type (e.g., 'DOCTOR PHONE', 'LAWYER EMAIL', 'ACCOUNTANT CONTACT').",
+    "relationships": "Personal relationships and family contacts: family members (spouse, children, parents, siblings), close friends, business contacts, authorized representatives, people the user frequently interacts with or makes decisions on behalf of. Include relationship context (e.g., 'my wife Sarah', 'my son John') and relevant contact information or identifiers. IMPORTANT: When storing contact information, ALWAYS use the person's name if available (e.g., 'SARAH EMAIL', 'ALICE PHONE NUMBER', 'JOHN PHONE NUMBER'). Only use relationship type (e.g., 'SPOUSE EMAIL', 'FRIEND PHONE NUMBER') if the name is unknown.",
+    "services": "Service providers and professional contacts: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, therapist, personal trainer, and other professional service providers. Include contact information, specialties, and relevant details for these service providers. IMPORTANT: ALWAYS use the provider's name if available (e.g., 'DR SMITH PHONE', 'JOHN LAWYER EMAIL'). Only use service type (e.g., 'DOCTOR PHONE', 'LAWYER EMAIL') if the name is unknown.",
 }
 
 # Optimized description for task-oriented structured facts
@@ -90,30 +90,37 @@ task_assistant_description = """
     Feature Names with Ownership (Information Belonging to Others):
     Format: "[OWNER] [INFORMATION TYPE]"
     
+    Priority Rule: ALWAYS use the person's name if available, instead of relationship type.
+    - If name is known: Use "[NAME] [INFORMATION TYPE]" (e.g., "ALICE PHONE NUMBER", "SARAH EMAIL")
+    - If name is unknown: Use relationship type as fallback (e.g., "FRIEND PHONE NUMBER", "COLLEAGUE EMAIL")
+    
     Family Members:
-    - Spouse: "SPOUSE EMAIL", "SPOUSE PHONE NUMBER", "SPOUSE FULL NAME"
-    - Children: "CHILD NAME", "CHILD EMAIL", "CHILD PHONE NUMBER"
-      * Multiple children: "CHILD 1 NAME", "CHILD 2 NAME", etc.
-    - Parents: "PARENT NAME", "PARENT EMAIL", "PARENT PHONE NUMBER"
-      * Specific: "MOTHER NAME", "FATHER NAME"
-    - Siblings: "SIBLING NAME", "SIBLING PHONE"
-    - Emergency contacts: "EMERGENCY CONTACT NAME", "EMERGENCY CONTACT PHONE", "EMERGENCY CONTACT EMAIL"
+    - Spouse: "SARAH EMAIL", "SARAH PHONE NUMBER" (if name known) OR "SPOUSE EMAIL", "SPOUSE PHONE NUMBER" (if name unknown)
+    - Children: "JOHN PHONE NUMBER", "JOHN EMAIL" (if name known) OR "CHILD PHONE NUMBER", "CHILD EMAIL" (if name unknown)
+      * Multiple children: "JOHN PHONE NUMBER", "MARY PHONE NUMBER" (if names known) OR "CHILD 1 PHONE NUMBER", "CHILD 2 PHONE NUMBER" (if names unknown)
+    - Parents: "MOTHER SARAH PHONE" (if name known) OR "MOTHER PHONE NUMBER" (if name unknown)
+    - Siblings: "ALICE PHONE NUMBER" (if name known) OR "SIBLING PHONE NUMBER" (if name unknown)
+    - Emergency contacts: "ALICE PHONE NUMBER" (if name known) OR "EMERGENCY CONTACT PHONE NUMBER" (if name unknown)
     
     Service Providers:
-    - "DOCTOR NAME", "DOCTOR PHONE", "DOCTOR EMAIL"
-    - "LAWYER CONTACT", "ACCOUNTANT EMAIL"
-    - "PRIMARY DOCTOR PHONE" (if multiple doctors)
+    - "DR SMITH PHONE", "DR SMITH EMAIL" (if name known) OR "DOCTOR PHONE", "DOCTOR EMAIL" (if name unknown)
+    - "JOHN LAWYER CONTACT" (if name known) OR "LAWYER CONTACT" (if name unknown)
+    - "ACCOUNTANT MARY EMAIL" (if name known) OR "ACCOUNTANT EMAIL" (if name unknown)
     
     Work Contacts:
-    - "MANAGER NAME", "MANAGER EMAIL"
-    - "COLLEAGUE PHONE"
+    - "JOHN MANAGER EMAIL" (if name known) OR "MANAGER EMAIL" (if name unknown)
+    - "ALICE COLLEAGUE PHONE" (if name known) OR "COLLEAGUE PHONE" (if name unknown)
+    
+    Friends and Other Contacts:
+    - "ALICE PHONE NUMBER" (if name known) OR "FRIEND PHONE NUMBER" (if name unknown)
+    - "BOB EMAIL" (if name known) OR "FRIEND EMAIL" (if name unknown)
     
     Ownership Examples:
     - User's own email → "EMAIL"
-    - Spouse's email → "SPOUSE EMAIL"
-    - Child's phone → "CHILD PHONE NUMBER" or "CHILD 1 PHONE NUMBER"
-    - Emergency contact's phone → "EMERGENCY CONTACT PHONE"
-    - Doctor's contact → "DOCTOR PHONE"
+    - Spouse Sarah's email → "SARAH EMAIL" (preferred) OR "SPOUSE EMAIL" (if name unknown)
+    - Friend Alice's phone → "ALICE PHONE NUMBER" (preferred) OR "FRIEND PHONE NUMBER" (if name unknown)
+    - Child John's phone → "JOHN PHONE NUMBER" (preferred) OR "CHILD PHONE NUMBER" (if name unknown)
+    - Doctor Smith's contact → "DR SMITH PHONE" (preferred) OR "DOCTOR PHONE" (if name unknown)
     
     AVOIDING DUPLICATES
     
@@ -141,10 +148,11 @@ task_assistant_description = """
     3. **CRITICAL: Select the correct tag from the defined list (basics, contacts, identities, accounts, preferences, relationships, services) - DO NOT create new tags**
     4. Use standard feature names (see FEATURE NAMING RULES above)
     5. Include ownership prefix if information belongs to someone else
-    6. Extract ALL structured facts, even basic ones like names and contact details
-    7. For account numbers and IDs, store only the last 4 digits
-    8. Include relationship context when extracting family/contact information
-    9. Extract service provider information with contact details and specialties
+    6. **CRITICAL: For ownership, ALWAYS use the person's name if available (e.g., "ALICE PHONE NUMBER") instead of relationship type (e.g., "FRIEND PHONE NUMBER"). Only use relationship type if the name is unknown.**
+    7. Extract ALL structured facts, even basic ones like names and contact details
+    8. For account numbers and IDs, store only the last 4 digits
+    9. Include relationship context when extracting family/contact information
+    10. Extract service provider information with contact details and specialties
     
     Priority Order:
     1. Contact information needed for task completion (contacts, basics)
