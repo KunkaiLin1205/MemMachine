@@ -78,14 +78,19 @@ task_assistant_description = """
     Standard Feature Names (User's Own Information):
     - "FULL NAME" (not "NAME", "USER NAME", "USERNAME")
     - "EMAIL" (not "EMAIL ADDRESS", "CONTACT EMAIL", "E-MAIL")
+      * If multiple emails exist, use suffix: "EMAIL WORK", "EMAIL PERSONAL", "EMAIL WORKING", "EMAIL PRIVATE"
     - "PHONE NUMBER" (not "PHONE", "MOBILE", "TELEPHONE")
+      * If multiple phones exist, use suffix: "PHONE NUMBER WORK", "PHONE NUMBER PERSONAL", "MOBILE PHONE", "HOME PHONE"
     - "MOBILE PHONE" (only if user has multiple phones and you need to distinguish)
     - "BANK ACCOUNT LAST4" (not "ACCOUNT", "BANK", "ACCOUNT NUMBER")
+      * If multiple accounts exist, use suffix: "BANK ACCOUNT LAST4 CHECKING", "BANK ACCOUNT LAST4 SAVINGS"
     - "CREDIT CARD LAST4" (not "CARD", "CARD NUMBER")
+      * If multiple cards exist, use suffix: "CREDIT CARD LAST4 VISA", "CREDIT CARD LAST4 AMEX"
     - "PREFERRED PAYMENT METHOD" (not "PAYMENT", "PREFERENCE")
     - "TIMEZONE" (not "TZ", "TIME ZONE")
     - "DATE OF BIRTH" (not "DOB", "BIRTHDATE", "BIRTH DATE")
     - "HOME ADDRESS" (not "ADDRESS", "HOME", "RESIDENCE")
+      * If multiple addresses exist, use suffix: "HOME ADDRESS", "WORK ADDRESS", "MAILING ADDRESS"
     
     Feature Names with Ownership (Information Belonging to Others):
     Format: "[OWNER] [INFORMATION TYPE]"
@@ -129,16 +134,29 @@ task_assistant_description = """
     2. If a similar feature exists, USE the existing feature name exactly as it appears
     3. Do NOT create a new feature with a different name for the same information
     
+    Handling Multiple Accounts of the Same Type:
+    - If the user has multiple accounts of the same type (e.g., multiple emails, multiple phone numbers, multiple bank accounts), use SUFFIXES to distinguish them
+    - Examples:
+      * Multiple emails: "EMAIL WORK" and "EMAIL PERSONAL" (or "EMAIL WORKING" and "EMAIL PRIVATE")
+      * Multiple phones: "PHONE NUMBER WORK" and "PHONE NUMBER PERSONAL"
+      * Multiple bank accounts: "BANK ACCOUNT LAST4 CHECKING" and "BANK ACCOUNT LAST4 SAVINGS"
+      * Multiple addresses: "HOME ADDRESS" and "WORK ADDRESS"
+    - If OLD_PROFILE already has a feature with a suffix (e.g., "EMAIL WORK"), and new information is about a different account of the same type, create a new feature with a different suffix (e.g., "EMAIL PERSONAL")
+    - If OLD_PROFILE has "EMAIL" (no suffix) and new information is about a different email, UPDATE "EMAIL" to "EMAIL WORK" and create "EMAIL PERSONAL" for the new one
+    
     Updating Existing Features:
     - Use UPDATE commands (delete old + add new) to modify existing features
     - Do NOT use ADD commands to create duplicates
     - Example: If OLD_PROFILE has "EMAIL" and new message mentions "email address", 
       UPDATE "EMAIL" instead of creating "EMAIL ADDRESS"
+    - Example: If OLD_PROFILE has "EMAIL" and new message mentions a work email, 
+      UPDATE "EMAIL" to "EMAIL PERSONAL" and ADD "EMAIL WORK" for the work email
     
     Reusing Feature Names:
     - If you see a feature name in OLD_PROFILE that means the same thing, USE THAT EXACT NAME
     - Do not create synonyms or variations
     - Check OLD_PROFILE first - reuse existing feature names when the information matches
+    - For multiple accounts: Check if a suffix already exists, and use consistent suffix naming
     
     EXTRACTION PROCESS
     
@@ -149,10 +167,11 @@ task_assistant_description = """
     4. Use standard feature names (see FEATURE NAMING RULES above)
     5. Include ownership prefix if information belongs to someone else
     6. **CRITICAL: For ownership, ALWAYS use the person's name if available (e.g., "ALICE PHONE NUMBER") instead of relationship type (e.g., "FRIEND PHONE NUMBER"). Only use relationship type if the name is unknown.**
-    7. Extract ALL structured facts, even basic ones like names and contact details
-    8. For account numbers and IDs, store only the last 4 digits
-    9. Include relationship context when extracting family/contact information
-    10. Extract service provider information with contact details and specialties
+    7. **CRITICAL: For multiple accounts of the same type (e.g., multiple emails, phones, bank accounts), use SUFFIXES to distinguish them (e.g., "EMAIL WORK" vs "EMAIL PERSONAL", "PHONE NUMBER WORK" vs "PHONE NUMBER PERSONAL"). If OLD_PROFILE has "EMAIL" and you discover a work email, update to "EMAIL PERSONAL" and add "EMAIL WORK".**
+    8. Extract ALL structured facts, even basic ones like names and contact details
+    9. For account numbers and IDs, store only the last 4 digits
+    10. Include relationship context when extracting family/contact information
+    11. Extract service provider information with contact details and specialties
     
     Priority Order:
     1. Contact information needed for task completion (contacts, basics)
