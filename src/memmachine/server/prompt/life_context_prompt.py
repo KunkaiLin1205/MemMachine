@@ -15,12 +15,11 @@ from memmachine.semantic_memory.util.semantic_prompt_template import (
 
 # Life-oriented personal context tags
 life_context_tags: dict[str, str] = {
-    # === Life & Personal Summary ===
-    "interests": "LONG-TERM interests and hobbies: what the user enjoys doing, passions, recreational activities, creative pursuits, learning interests, entertainment preferences, cultural interests, things the user likes to do in their free time. EXCLUDE: One-time activities, temporary interests, or things the user is doing just for this trip/event.",
-    "lifestyle": "STABLE lifestyle patterns and habits: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance, stress management, leisure activities, time management style, how the user lives their daily life. EXCLUDE: Temporary routines, vacation schedules, or travel-related patterns.",
-    "goals": "LONG-TERM goals and aspirations: career goals, personal development goals, health goals, financial goals, relationship goals, educational goals, life vision, desired achievements, what the user wants to become or accomplish. EXCLUDE: Short-term tasks, current to-dos, or temporary objectives.",
-    "personality": "STABLE personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, how the user typically behaves and interacts. These are enduring traits, not temporary moods.",
-    "life_situation": "STABLE life circumstances and context: living situation (permanent), family structure, work situation (job/career, not current projects), major life stage. EXCLUDE: Current location, temporary residence (hotels/Airbnbs), travel status, current trips, temporary accommodations, or any time-bound situations. ASK: 'Will this still be true in 6 months?' If NO, do not extract.",
+    "interests": "Long-term interests and hobbies: what the user enjoys doing, passions, recreational activities, creative pursuits, learning interests, entertainment preferences, cultural interests, and things the user likes to do in their free time.",
+    "lifestyle": "Stable lifestyle patterns and habits: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance approach, stress management techniques, leisure activities, and time management style.",
+    "goals": "Long-term goals and aspirations: career goals, personal development goals, health and fitness goals, financial goals, relationship goals, educational goals, life vision, and desired achievements.",
+    "personality": "Stable personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, and how the user typically interacts with others.",
+    "life_situation": "Stable life circumstances and context: permanent living situation (city/region), family structure, work situation (job/career), major life stage, and long-term commitments.",
 }
 
 # Optimized description for life-oriented personal context
@@ -116,21 +115,33 @@ life_context_description = """
     - Temporary moods or situational feelings
     - Things the user is doing "right now" that won't persist
     
-    ## CRITICAL: NEVER Extract Sensitive Information
+    ## PII CLASSIFICATION SYSTEM
     
-    For security reasons, NEVER extract or store ANY of the following (not even partial):
-    - Social security numbers, passport numbers, driver's license numbers
-    - Credit card numbers, bank account numbers, routing numbers
-    - CVV/security codes, expiration dates, bank PINs
+    Life context focuses on personal insights (interests, goals, personality), NOT identity/account data.
+    However, you must still follow PII classification rules:
+    
+    **LEVEL 1: Non-Sensitive PII** ✅ CAN STORE (if relevant to life context)
+    - General preferences, interests, personality traits
+    - Career field, occupation type, education level
+    - City/state/country (general location context)
+    
+    **LEVEL 2: Sensitive PII** ⚠️ USUALLY NOT RELEVANT TO LIFE CONTEXT
+    - Specific contact info (emails, phones) → belongs in task_assistant_prompt
+    - Employee ID, student ID → belongs in task_assistant_prompt
+    - May extract if directly relevant to life situation (e.g., "works at Company X")
+    
+    **LEVEL 3: Highly Sensitive PII** ❌ NEVER STORE
+    - Full SSN, passport numbers, driver's license numbers
+    - Credit card/debit card numbers, bank account numbers
     - Passwords, PINs, security questions, authentication credentials
-    - Biometric data, medical records, detailed financial records
-    - Any information that could enable identity theft or fraud
+    - Biometric data, medical records, financial records (tax, salary)
+    - Complete addresses with unit/apartment numbers
+    - Legal documents, court records
     
-    If the user mentions sensitive information in passing, DO NOT extract it into semantic memory.
+    If the user mentions Level 3 information in passing, DO NOT extract it into semantic memory.
     Such information should never appear in life context features.
     
-    Note: Life context is about personal insights (interests, goals, personality), NOT account/identity data.
-    Non-sensitive IDs like employee ID or student ID belong in task_assistant_prompt, not here.
+    Note: IDs and account info belong in task_assistant_prompt, not here.
     
     ASK YOURSELF: "Will this information still be accurate in 6 months?"
     - If YES → Extract it
@@ -309,16 +320,19 @@ life_context_consolidation_prompt = """
 
     CONSOLIDATION GUIDELINES:
 
-    0. **DELETE SENSITIVE AND TEMPORARY INFORMATION (HIGHEST PRIORITY)**:
+    0. **DELETE LEVEL 3 (HIGHLY SENSITIVE) AND TEMPORARY INFORMATION (HIGHEST PRIORITY)**:
     
-       SENSITIVE INFORMATION - DELETE IMMEDIATELY (no partial storage allowed):
-       - DELETE: Any social security numbers (full or partial)
-       - DELETE: Any passport numbers, driver's license numbers
-       - DELETE: Any credit card numbers (full or partial), bank account numbers, routing numbers
-       - DELETE: Passwords, PINs, security questions, authentication credentials, CVV codes
-       - DELETE: Biometric data, detailed medical records, detailed financial records
-       - DELETE: Any information that could enable identity theft or fraud
-       - Life context should NEVER contain sensitive PII - delete any that appears
+       LEVEL 3 HIGHLY SENSITIVE PII - DELETE IMMEDIATELY:
+       - DELETE: Full SSN, passport numbers, driver's license numbers
+       - DELETE: Credit card/debit card numbers (any portion)
+       - DELETE: Bank account numbers, routing numbers
+       - DELETE: Passwords, PINs, security questions, authentication credentials
+       - DELETE: Biometric data, medical records, financial records (tax, salary)
+       - DELETE: Complete addresses with unit/apartment numbers
+       - DELETE: Legal documents, court records
+       - Life context should NEVER contain Level 3 PII - delete any that appears
+       
+       Note: Level 1-2 PII (names, general info) is OK if relevant to life context
        
        TEMPORARY/TRANSIENT INFORMATION - DELETE:
        - DELETE: "CURRENT LOCATION", "USER LOCATION", "STAYING AT", "TEMPORARY RESIDENCE", or similar

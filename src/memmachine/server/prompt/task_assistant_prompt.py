@@ -15,23 +15,14 @@ from memmachine.semantic_memory.util.semantic_prompt_template import (
 
 # Task-oriented structured facts tags
 task_assistant_tags: dict[str, str] = {
-    # === Core Identity & Contact ===
-    "basics": "Basic personal information: full name, date of birth, gender, age, marital status, education level, occupation, and other basic demographic information. IMPORTANT: If information belongs to someone other than the user (e.g., spouse's name, child's date of birth), include ownership in the feature name (e.g., 'SPOUSE FULL NAME', 'CHILD DATE OF BIRTH'). EXCLUDE: Current location, temporary residence, travel status, or any time-bound information.",
-    "contacts": "PERMANENT contact information and addresses ONLY: phone numbers, email addresses, permanent home addresses, permanent work addresses, mailing addresses, emergency contacts. IMPORTANT: Always include ownership/relationship in feature names when the contact belongs to someone other than the user (e.g., 'SPOUSE EMAIL', 'CHILD PHONE NUMBER', 'EMERGENCY CONTACT PHONE'). For the user's own contacts, use standard names like 'EMAIL', 'PHONE NUMBER'. EXCLUDE: Temporary addresses (hotels, Airbnbs, vacation rentals), current location, travel destinations.",
-    "identities": "Personal identification documents and IDs that identify the USER: employee ID, student ID, insurance member ID, professional license numbers, military ID. These are IDs issued to the person. NEVER STORE: SSN (full or partial), passport numbers, driver's license numbers, or any government-issued ID numbers that could enable identity theft.",
-    
-    # === Accounts & Memberships ===
-    "accounts": "Service accounts and memberships that identify the user's ACCOUNTS with organizations: customer IDs, subscription IDs, membership numbers, loyalty program numbers, utility account numbers, library card numbers. These are account identifiers issued by services/companies. NEVER STORE: Credit card numbers, bank account numbers, routing numbers, CVV codes, PINs, passwords, or any financial credentials.",
-    
-    # === Preferences & Settings ===
-    "preferences": "LONG-TERM user preferences ONLY: preferred contact methods (phone, email, text), communication style preferences, service preferences (appointment times, service providers), payment methods, dietary preferences, accessibility needs, language preferences, notification preferences, time zone, preferred meeting formats. EXCLUDE: Temporary preferences, situational choices, or context-dependent decisions.",
-    
-    # === Relationships & Network ===
-    "relationships": "Personal relationships and family contacts: family members (spouse, children, parents, siblings), close friends, business contacts, authorized representatives, people the user frequently interacts with or makes decisions on behalf of. Include relationship context and relevant contact information or identifiers. IMPORTANT: When storing contact information, ALWAYS use the person's name if available (e.g., 'SARAH EMAIL', 'ALICE PHONE NUMBER'). Only use relationship type (e.g., 'SPOUSE EMAIL', 'FRIEND PHONE NUMBER') if the name is unknown.",
-    "services": "Service providers and professional contacts: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, therapist, personal trainer, and other professional service providers. Include contact information, specialties, and relevant details. IMPORTANT: ALWAYS use the provider's name if available (e.g., 'DR SMITH PHONE', 'JOHN LAWYER EMAIL'). Only use service type (e.g., 'DOCTOR PHONE', 'LAWYER EMAIL') if the name is unknown.",
-    
-    # === Other Information ===
-    "others": "Other structured facts that don't fit into the above categories but are still STABLE, PERMANENT, REUSABLE information needed for task completion. Use this tag only when the information clearly doesn't belong to any of the other defined tags (basics, contacts, identities, accounts, preferences, relationships, services). EXCLUDE: Temporary states, current situations, travel information, or any time-bound data.",
+    "basics": "Basic personal information about the user: full name, date of birth, gender, age, marital status, education level, occupation, and other demographic information.",
+    "contacts": "Permanent contact information: phone numbers, email addresses, home address, work address, mailing address, and emergency contacts.",
+    "identities": "Personal identification documents and IDs: employee ID, student ID, insurance member ID, professional license numbers, and other non-government issued identifiers.",
+    "accounts": "Service accounts and memberships: customer IDs, subscription IDs, membership numbers, loyalty program numbers, utility account numbers, and library card numbers.",
+    "preferences": "Long-term user preferences: preferred contact methods, communication style preferences, dietary preferences, accessibility needs, language preferences, timezone, and notification settings.",
+    "relationships": "Personal relationships and family: family members (spouse, children, parents), close friends, business contacts, and authorized representatives with their contact information.",
+    "services": "Service providers and professionals: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, and other professional contacts with their specialties and contact information.",
+    "others": "Other stable structured facts that don't fit the above categories but are still permanent, reusable information needed for task completion.",
 }
 
 # Optimized description for task-oriented structured facts
@@ -93,26 +84,43 @@ task_assistant_description = """
     - If YES → Extract it
     - If NO → Do NOT extract (it belongs in episodic memory)
     
-    ## CRITICAL: NEVER Extract Sensitive Information
+    ## PII CLASSIFICATION SYSTEM
     
-    For security reasons, NEVER extract or store ANY of the following (not even partial):
-    - Social security numbers (full or partial)
-    - Passport numbers, driver's license numbers
-    - Credit card numbers (full or partial)
+    Use this classification to determine what can be stored:
+    
+    **LEVEL 1: Non-Sensitive PII** CAN STORE
+    Information that alone cannot identify an individual and poses minimal risk if disclosed.
+    Examples:
+    - Common names, general email addresses, gender, age ranges
+    - City/state/country (general location, not specific addresses)
+    - General preferences, interests, occupation
+    
+    **LEVEL 2: Sensitive PII** CAN STORE
+    Information that can identify individuals when combined and poses moderate risk if disclosed.
+    Examples:
+    - Full birthdate, phone numbers
+    - Corporate/work emails, street addresses (without unit/apartment number)
+    - Employee ID, student ID, insurance member ID, customer ID
+    - Membership numbers, loyalty program numbers, subscription IDs
+    - IP addresses, partial account identifiers (non-financial)
+    
+    **LEVEL 3: Highly Sensitive PII** NEVER STORE
+    Information that directly identifies individuals or could cause serious harm if disclosed.
+    Examples:
+    - Full SSN, passport numbers, driver's license numbers
+    - Full credit card/debit card numbers (any portion)
     - Bank account numbers, routing numbers
-    - CVV/security codes, expiration dates
-    - Passwords, PINs, security questions, authentication credentials
-    - Biometric data, medical records, detailed financial records
-    - Any information that could enable identity theft or fraud
+    - Biometric data (fingerprints, facial recognition, etc.)
+    - Complete residential addresses with unit/apartment numbers
+    - Authentication credentials (passwords, PINs, security questions)
+    - Medical records, financial records (tax returns, salary details)
+    - Legal documents, court records
     
-    If the user provides sensitive information, DO NOT EXTRACT IT AT ALL:
+    If the user provides Level 3 information, DO NOT EXTRACT IT AT ALL:
     - "My SSN is 123-45-6789" → DO NOT EXTRACT
     - "My credit card is 4111-1111-1111-1234" → DO NOT EXTRACT
     - "My password is secret123" → DO NOT EXTRACT
-    
-    OK to store (non-sensitive IDs):
-    - Employee ID, student ID, insurance member ID, loyalty program number
-    - Subscription IDs, customer IDs, membership numbers
+    - "I live at 123 Main St, Apt 4B" → Extract only "123 Main St" as HOME ADDRESS (no unit)
     
     FEATURE NAMING RULES
     
@@ -257,15 +265,21 @@ task_assistant_consolidation_prompt = """
 
     CONSOLIDATION GUIDELINES:
 
-    0. **DELETE SENSITIVE AND TEMPORARY INFORMATION (HIGHEST PRIORITY)**:
+    0. **DELETE LEVEL 3 (HIGHLY SENSITIVE) AND TEMPORARY INFORMATION (HIGHEST PRIORITY)**:
     
-       SENSITIVE INFORMATION - DELETE IMMEDIATELY (no partial storage allowed):
-       - DELETE: Any social security numbers (full or partial)
-       - DELETE: Any passport numbers, driver's license numbers
-       - DELETE: Any credit card numbers (full or partial), bank account numbers, routing numbers
-       - DELETE: Passwords, PINs, security questions, authentication credentials, CVV codes
-       - DELETE: Biometric data, detailed medical records, detailed financial records
-       - KEEP: Non-sensitive IDs like employee ID, student ID, member ID, customer ID
+       LEVEL 3 HIGHLY SENSITIVE PII - DELETE IMMEDIATELY:
+       - DELETE: Full SSN, passport numbers, driver's license numbers
+       - DELETE: Credit card/debit card numbers (any portion)
+       - DELETE: Bank account numbers, routing numbers
+       - DELETE: Passwords, PINs, security questions, authentication credentials
+       - DELETE: Biometric data, medical records, financial records (tax, salary)
+       - DELETE: Complete addresses with unit/apartment numbers
+       - DELETE: Legal documents, court records
+       
+       LEVEL 1-2 PII - OK TO KEEP:
+       - KEEP: Names, emails, phone numbers, general addresses (without unit)
+       - KEEP: Employee ID, student ID, member ID, customer ID, subscription ID
+       - KEEP: Birthdate, occupation, general preferences
        
        TEMPORARY/TRANSIENT INFORMATION - DELETE:
        - DELETE: "USER LOCATION", "CURRENT ADDRESS", "CURRENT LOCATION", "STAYING AT", or similar
