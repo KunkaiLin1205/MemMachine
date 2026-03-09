@@ -16,22 +16,22 @@ from memmachine.semantic_memory.util.semantic_prompt_template import (
 # Task-oriented structured facts tags
 task_assistant_tags: dict[str, str] = {
     # === Core Identity & Contact ===
-    "basics": "Basic personal information: full name, date of birth, gender, age, marital status, education level, occupation, and other basic demographic information. IMPORTANT: If information belongs to someone other than the user (e.g., spouse's name, child's date of birth), include ownership in the feature name (e.g., 'SPOUSE FULL NAME', 'CHILD DATE OF BIRTH').",
-    "contacts": "Contact information and addresses: phone numbers, email addresses, permanent addresses, mailing addresses, work addresses, emergency contacts. IMPORTANT: Always include ownership/relationship in feature names when the contact belongs to someone other than the user (e.g., 'SPOUSE EMAIL', 'CHILD PHONE NUMBER', 'EMERGENCY CONTACT PHONE'). For the user's own contacts, use standard names like 'EMAIL', 'PHONE NUMBER'.",
-    "identities": "Stable identification numbers and documents: social security numbers (last 4 digits), driver's license numbers, passport numbers, tax IDs, employee IDs, student IDs, insurance member IDs.",
+    "basics": "Basic personal information: full name, date of birth, gender, age, marital status, education level, occupation, and other basic demographic information. IMPORTANT: If information belongs to someone other than the user (e.g., spouse's name, child's date of birth), include ownership in the feature name (e.g., 'SPOUSE FULL NAME', 'CHILD DATE OF BIRTH'). EXCLUDE: Current location, temporary residence, travel status, or any time-bound information.",
+    "contacts": "PERMANENT contact information and addresses ONLY: phone numbers, email addresses, permanent home addresses, permanent work addresses, mailing addresses, emergency contacts. IMPORTANT: Always include ownership/relationship in feature names when the contact belongs to someone other than the user (e.g., 'SPOUSE EMAIL', 'CHILD PHONE NUMBER', 'EMERGENCY CONTACT PHONE'). For the user's own contacts, use standard names like 'EMAIL', 'PHONE NUMBER'. EXCLUDE: Temporary addresses (hotels, Airbnbs, vacation rentals), current location, travel destinations.",
+    "identities": "Stable identification numbers and documents (LAST 4 DIGITS ONLY for sensitive IDs): SSN last 4 digits, employee IDs, student IDs, insurance member IDs, loyalty program numbers. NEVER STORE: Full SSN, full passport numbers, full driver's license numbers, full credit card numbers, passwords, PINs, security questions, authentication credentials, biometric data.",
     
     # === Financial & Accounts ===
-    "accounts": "Account information: account numbers, account holder names, account types, bank account details, credit card information (last 4 digits, card type), subscription account IDs, service account numbers, membership numbers, customer IDs, loyalty program numbers.",
+    "accounts": "Account information (LAST 4 DIGITS ONLY for sensitive numbers): credit card last 4 digits and card type, bank account last 4 digits, account holder names, account types, subscription account IDs, service account numbers, membership numbers, customer IDs, loyalty program numbers. NEVER STORE: Full credit card numbers, full bank account numbers with routing numbers, CVV/security codes, bank PINs, online banking passwords.",
     
     # === Preferences & Settings ===
-    "preferences": "User preferences: preferred contact methods (phone, email, text), communication style preferences, service preferences (appointment times, service providers), payment methods, dietary preferences, accessibility needs, language preferences, notification preferences, time zone, preferred meeting formats.",
+    "preferences": "LONG-TERM user preferences ONLY: preferred contact methods (phone, email, text), communication style preferences, service preferences (appointment times, service providers), payment methods, dietary preferences, accessibility needs, language preferences, notification preferences, time zone, preferred meeting formats. EXCLUDE: Temporary preferences, situational choices, or context-dependent decisions.",
     
     # === Relationships & Network ===
     "relationships": "Personal relationships and family contacts: family members (spouse, children, parents, siblings), close friends, business contacts, authorized representatives, people the user frequently interacts with or makes decisions on behalf of. Include relationship context and relevant contact information or identifiers. IMPORTANT: When storing contact information, ALWAYS use the person's name if available (e.g., 'SARAH EMAIL', 'ALICE PHONE NUMBER'). Only use relationship type (e.g., 'SPOUSE EMAIL', 'FRIEND PHONE NUMBER') if the name is unknown.",
     "services": "Service providers and professional contacts: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, therapist, personal trainer, and other professional service providers. Include contact information, specialties, and relevant details. IMPORTANT: ALWAYS use the provider's name if available (e.g., 'DR SMITH PHONE', 'JOHN LAWYER EMAIL'). Only use service type (e.g., 'DOCTOR PHONE', 'LAWYER EMAIL') if the name is unknown.",
     
     # === Other Information ===
-    "others": "Other structured facts that don't fit into the above categories but are still stable, reusable information needed for task completion. Use this tag only when the information clearly doesn't belong to any of the other defined tags (basics, contacts, identities, accounts, preferences, relationships, services).",
+    "others": "Other structured facts that don't fit into the above categories but are still STABLE, PERMANENT, REUSABLE information needed for task completion. Use this tag only when the information clearly doesn't belong to any of the other defined tags (basics, contacts, identities, accounts, preferences, relationships, services). EXCLUDE: Temporary states, current situations, travel information, or any time-bound data.",
 }
 
 # Optimized description for task-oriented structured facts
@@ -60,19 +60,55 @@ task_assistant_description = """
     WHAT TO EXTRACT
     
     Extract These Stable Structured Facts:
-    - Permanent contact information (phone, email, addresses)
+    - PERMANENT contact information (phone, email, permanent home/work addresses)
     - Stable account information (account numbers, IDs - last 4 digits only)
-    - Long-term preferences (communication methods, service preferences, payment methods)
+    - LONG-TERM preferences (communication methods, service preferences, payment methods)
     - Relationship information that remains stable (family members, close contacts)
     - Service provider relationships with contact information
     
-    Do NOT Extract (These belong in episodic memory):
+    CRITICAL: Do NOT Extract These (They belong in episodic memory):
+    
+    LOCATION & TRAVEL (NEVER EXTRACT):
+    - Current location or whereabouts (e.g., "user is at the airport", "user is in Chicago")
+    - Temporary residence (e.g., "staying at Airbnb at 123 Main St", "hotel room 405")
+    - Travel destinations or itineraries (e.g., "flying to Paris tomorrow")
+    - Vacation rentals, hotels, short-term accommodations
+    - "Current address" if it's temporary (use only PERMANENT addresses like "HOME ADDRESS")
+    
+    TEMPORAL STATES (NEVER EXTRACT):
     - Historical events or past actions (e.g., "booked a flight on 2026-01-23")
-    - Temporary states or pending actions (e.g., "flight_booking_pending")
-    - One-time transactions or specific occurrences (e.g., "made a purchase")
-    - Time-specific information that will become outdated (e.g., "currently traveling")
+    - Temporary states or pending actions (e.g., "flight_booking_pending", "waiting for delivery")
+    - One-time transactions or specific occurrences (e.g., "made a purchase", "ordered food")
+    - Time-specific information that will become outdated (e.g., "currently traveling", "on vacation")
+    - Any information with dates that indicate it's temporary (e.g., "staying until March 15")
+    
+    TRANSIENT INFORMATION (NEVER EXTRACT):
     - Travel history, booking history, transaction history, or any event-based information
     - Temporary preferences or context-dependent choices (e.g., "wants pizza today" vs. stable "prefers Italian food")
+    - Current projects or tasks in progress
+    - Appointments, meetings, or scheduled events (these are calendar items, not profile data)
+    
+    ASK YOURSELF: "Will this information still be accurate in 6 months?"
+    - If YES → Extract it
+    - If NO → Do NOT extract (it belongs in episodic memory)
+    
+    ## CRITICAL: NEVER Extract Sensitive Information
+    
+    For security reasons, NEVER extract or store:
+    - Full social security numbers (only last 4 digits allowed: "SSN LAST4")
+    - Full passport numbers, full driver's license numbers
+    - Full credit card numbers (only last 4 digits allowed: "CREDIT CARD LAST4")
+    - Full bank account numbers with routing numbers (only last 4 digits allowed)
+    - CVV/security codes, expiration dates with CVV
+    - Passwords, PINs, security questions, authentication credentials
+    - Complete residential addresses with unit/apartment numbers (use general "HOME ADDRESS" without sensitive details)
+    - Biometric data, medical records, detailed financial records
+    - Any information that could enable identity theft or fraud
+    
+    If the user provides sensitive information, extract ONLY the safe portion:
+    - "My SSN is 123-45-6789" → Extract "SSN LAST4": "6789"
+    - "My credit card is 4111-1111-1111-1234" → Extract "CREDIT CARD LAST4": "1234"
+    - "My password is secret123" → DO NOT EXTRACT
     
     FEATURE NAMING RULES
     
@@ -219,6 +255,26 @@ task_assistant_consolidation_prompt = """
     - For service providers: Use provider's name if available (e.g., "DR SMITH PHONE") instead of service type (e.g., "DOCTOR PHONE")
 
     CONSOLIDATION GUIDELINES:
+
+    0. **DELETE SENSITIVE AND TEMPORARY INFORMATION (HIGHEST PRIORITY)**:
+    
+       SENSITIVE INFORMATION - DELETE IMMEDIATELY:
+       - DELETE: Full social security numbers, full passport numbers, full driver's license numbers
+       - DELETE: Full credit card numbers, full bank account numbers with routing numbers
+       - DELETE: Passwords, PINs, security questions, authentication credentials, CVV codes
+       - DELETE: Complete addresses with apartment/unit numbers that could enable identity theft
+       - DELETE: Biometric data, detailed medical records, detailed financial records
+       - KEEP ONLY: Last 4 digits (e.g., "SSN LAST4": "6789", "CREDIT CARD LAST4": "1234")
+       
+       TEMPORARY/TRANSIENT INFORMATION - DELETE:
+       - DELETE: "USER LOCATION", "CURRENT ADDRESS", "CURRENT LOCATION", "STAYING AT", or similar
+       - DELETE: Airbnb addresses, hotel rooms, vacation rentals, temporary residences
+       - DELETE: Any information with specific dates that indicate it's time-bound
+       - DELETE: Travel itineraries, current trips, "currently at" information
+       - KEEP ONLY: Permanent addresses like "HOME ADDRESS", "WORK ADDRESS"
+       - Example: "USER LOCATION": "staying at Airbnb at 123 Main St" → DELETE entirely
+       - Example: "USER LOCATION_2": "User's current residence is the Airbnb..." → DELETE entirely
+       - ASK: "Will this still be true in 6 months?" If NO → DELETE
 
     1. **Identical Information (Same Value & Meaning)**: 
        - If memories have identical values and meanings, DELETE duplicates and KEEP only one

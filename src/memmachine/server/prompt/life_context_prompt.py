@@ -16,11 +16,11 @@ from memmachine.semantic_memory.util.semantic_prompt_template import (
 # Life-oriented personal context tags
 life_context_tags: dict[str, str] = {
     # === Life & Personal Summary ===
-    "interests": "Interests and hobbies: what the user enjoys doing, passions, recreational activities, creative pursuits, learning interests, entertainment preferences, cultural interests, things the user likes to do in their free time.",
-    "lifestyle": "Lifestyle patterns and habits: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance, stress management, leisure activities, travel patterns, time management style, how the user lives their daily life.",
-    "goals": "Goals and aspirations: short-term and long-term goals (career, personal development, health, financial, relationship, educational), life vision, desired achievements, long-term plans, what the user wants to become or accomplish.",
-    "personality": "Personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, how the user typically behaves and interacts.",
-    "life_situation": "Current life circumstances and context: living situation, family structure, work situation, major life events, transitions, challenges, opportunities, current stage of life, what's happening in the user's life right now.",
+    "interests": "LONG-TERM interests and hobbies: what the user enjoys doing, passions, recreational activities, creative pursuits, learning interests, entertainment preferences, cultural interests, things the user likes to do in their free time. EXCLUDE: One-time activities, temporary interests, or things the user is doing just for this trip/event.",
+    "lifestyle": "STABLE lifestyle patterns and habits: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance, stress management, leisure activities, time management style, how the user lives their daily life. EXCLUDE: Temporary routines, vacation schedules, or travel-related patterns.",
+    "goals": "LONG-TERM goals and aspirations: career goals, personal development goals, health goals, financial goals, relationship goals, educational goals, life vision, desired achievements, what the user wants to become or accomplish. EXCLUDE: Short-term tasks, current to-dos, or temporary objectives.",
+    "personality": "STABLE personality traits and characteristics: communication style, decision-making style, introversion/extroversion, openness to new experiences, conscientiousness, emotional stability, how the user typically behaves and interacts. These are enduring traits, not temporary moods.",
+    "life_situation": "STABLE life circumstances and context: living situation (permanent), family structure, work situation (job/career, not current projects), major life stage. EXCLUDE: Current location, temporary residence (hotels/Airbnbs), travel status, current trips, temporary accommodations, or any time-bound situations. ASK: 'Will this still be true in 6 months?' If NO, do not extract.",
 }
 
 # Optimized description for life-oriented personal context
@@ -90,13 +90,35 @@ life_context_description = """
     - How the user typically responds to situations, manages time, handles relationships
     - Examples: response patterns, time management style, relationship handling
     
-    Do NOT Extract:
+    CRITICAL: Do NOT Extract (These belong in episodic memory):
+    
+    LOCATION & TRAVEL (NEVER EXTRACT):
+    - Current location or whereabouts (e.g., "user is at the airport", "user is in Chicago")
+    - Temporary residence (e.g., "staying at Airbnb at 123 Main St", "hotel room 405")
+    - Travel destinations or itineraries (e.g., "flying to Paris tomorrow", "on vacation in Hawaii")
+    - Vacation rentals, hotels, short-term accommodations
+    - Current trips or travel status
+    
+    TEMPORAL STATES (NEVER EXTRACT):
     - Historical events or past actions (episodic memory)
     - Temporary states or pending actions (episodic memory)
-    - Concrete facts like names, phone numbers, email addresses, account numbers (these are structured facts, not personal insights)
-    - Identity documents or account identifiers (these are structured facts, not personal insights)
-    - Service provider contact information (these are structured facts, not personal insights)
-    - One-time preferences or context-dependent choices (episodic memory)
+    - Time-specific information that will become outdated
+    - Current projects or tasks in progress
+    - Appointments, meetings, or scheduled events
+    
+    STRUCTURED FACTS (EXTRACT IN task_assistant_prompt INSTEAD):
+    - Concrete facts like names, phone numbers, email addresses, account numbers
+    - Identity documents or account identifiers
+    - Service provider contact information
+    
+    TRANSIENT INFORMATION:
+    - One-time preferences or context-dependent choices
+    - Temporary moods or situational feelings
+    - Things the user is doing "right now" that won't persist
+    
+    ASK YOURSELF: "Will this information still be accurate in 6 months?"
+    - If YES → Extract it
+    - If NO → Do NOT extract (it belongs in episodic memory)
     
     FEATURE NAMING RULES
     
@@ -270,6 +292,16 @@ life_context_consolidation_prompt = """
     - Life Situation: "CURRENT LIFE STAGE", "CORE VALUE", "PRIORITY", "LIFE CHALLENGE", "LIFE OPPORTUNITY", "FAMILY SITUATION", "WORK SITUATION", or use suffixes like "CORE VALUE FAMILY", "CORE VALUE CAREER"
 
     CONSOLIDATION GUIDELINES:
+
+    0. **DELETE TEMPORARY/TRANSIENT INFORMATION (HIGHEST PRIORITY)**:
+       - DELETE any memories containing temporary locations, current whereabouts, or travel information
+       - DELETE: "CURRENT LOCATION", "USER LOCATION", "STAYING AT", "TEMPORARY RESIDENCE", or similar
+       - DELETE: Airbnb addresses, hotel rooms, vacation rentals, current trips
+       - DELETE: Any information with specific dates that indicate it's time-bound
+       - DELETE: Current projects, tasks in progress, temporary situations
+       - ASK: "Will this still be true in 6 months?" If NO → DELETE
+       - Example: "LIFE SITUATION": "staying at Airbnb in Chicago" → DELETE entirely
+       - Example: "USER LOCATION": "currently traveling in Europe" → DELETE entirely
 
     1. **Identical Information (Same Value & Meaning)**: 
        - If memories have identical values and meanings, DELETE duplicates and KEEP only one
