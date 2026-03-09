@@ -51,6 +51,7 @@ life_context_description = """
     - goals: aspirations, objectives, plans
     - personality: character traits, behavioral patterns
     - life_situation: circumstances, context
+    - CRITICAL: Tags are case-sensitive and MUST be lowercase (e.g., "interests" NOT "INTERESTS" or "Interests")
     
     ## WHAT TO EXTRACT
     
@@ -149,6 +150,8 @@ life_context_consolidation_prompt = """
 
     ### Tags
     Only use: interests, lifestyle, goals, personality, life_situation
+    - CRITICAL: Tags MUST be lowercase (e.g., "interests" NOT "INTERESTS" or "Interests")
+    - Tags are case-sensitive - wrong casing will cause system errors
 
     ### Feature Names
     - UPPERCASE with SPACES (e.g., "PRIMARY INTEREST", "CAREER GOAL")

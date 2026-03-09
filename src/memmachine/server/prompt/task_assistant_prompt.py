@@ -44,6 +44,7 @@ task_assistant_description = """
     You MUST ONLY use: basics, contacts, identities, accounts, preferences, relationships, services, others
     - DO NOT create new tags - choose the closest matching tag
     - Use "others" only when information clearly doesn't belong elsewhere
+    - CRITICAL: Tags are case-sensitive and MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts")
     
     ## WHAT TO EXTRACT
     
@@ -149,7 +150,7 @@ task_assistant_consolidation_prompt = """
 
     ### Tags
     Only use: basics, contacts, identities, accounts, preferences, relationships, services, others
-
+    - CRITICAL: Tags MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts")
     ### Feature Names
     - UPPERCASE with SPACES (e.g., "PHONE NUMBER", "EMAIL")
     - Use suffixes for multiple accounts: "EMAIL WORK", "EMAIL PERSONAL"

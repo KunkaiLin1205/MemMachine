@@ -27,12 +27,13 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         To update the profile, you will output a JSON document containing a list of commands to be executed in sequence.
 
         CRITICAL: You MUST use the command format below. Do NOT create nested objects or use any other format.
+        CRITICAL: Tag names MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts"). Tags are case-sensitive.
 
         The following output will add a feature:
         {
             "0": {
                 "command": "add",
-                "tag": "Preferred Content Format",
+                "tag": "preferences",
                 "feature": "unicode_for_math",
                 "value": true
             }
@@ -41,21 +42,21 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         {
             "0": {
                 "command": "delete",
-                "tag" : "Language Preferences",
-                "feature: "format"
+                "tag": "preferences",
+                "feature": "format"
             }
         }
         The following will update a feature:
         {
             "0": {
                 "command": "delete",
-                "tag": "Platform Behavior",
+                "tag": "preferences",
                 "feature": "prefers_detailed_responses",
                 "value": true
             },
             "1": {
                 "command": "add",
-                "tag" : "Platform Behavior",
+                "tag": "preferences",
                 "feature": "prefers_detailed_response",
                 "value": false
             }
