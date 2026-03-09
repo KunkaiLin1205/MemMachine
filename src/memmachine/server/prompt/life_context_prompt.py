@@ -203,12 +203,41 @@ life_context_consolidation_prompt = """
     More memories = more interference = more cognitive load.
     Be aggressive: some distinctions aren't worth maintaining. Delete ruthlessly.
 
-    ## OUTPUT SCHEMA
+    ## OUTPUT FORMAT
 
+    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
+
+    ### Output Schema
     ```
     <think> your reasoning </think>
-    {"consolidate_memories": [...], "keep_memories": [...]}
+    {"consolidated_memories": [...], "keep_memories": [...]}
     ```
+
+    ### Field Descriptions
+
+    **keep_memories** (REQUIRED - must be an array, never null):
+    - List of metadata.id values (as strings) for memories to KEEP unchanged
+    - Use empty array [] to delete ALL input memories
+    - Example: ["123", "456"] keeps memories with those IDs
+
+    **consolidated_memories** (REQUIRED - must be an array, never null):
+    - List of NEW memories to create after consolidation
+    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
+    - Use empty array [] if no new memories needed
+
+    ### Examples
+
+    Keep distinct items unchanged:
+    {"consolidated_memories": [], "keep_memories": ["1", "2"]}
+
+    Merge duplicates into one:
+    {"consolidated_memories": [{"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby"}], "keep_memories": []}
+
+    Delete temporary/sensitive data:
+    {"consolidated_memories": [], "keep_memories": []}
+
+    Keep all unchanged:
+    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
 """
 
 LifeContextSemanticCategory = SemanticCategory(

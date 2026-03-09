@@ -200,17 +200,44 @@ def build_consolidation_prompt() -> str:
 
     Do not create new tag names.
 
+    ## OUTPUT FORMAT
 
-    The proper noop syntax is:
-    {
-        "consolidate_memories": []
-        "keep_memories": []
-    }
+    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
 
-    The final output schema is:
+    ### Output Schema
+    ```
     <think> insert your chain of thought here. </think>
     {
-        "consolidate_memories": list of new memories to add
-        "keep_memories": list of ids of old memories to keep
+        "consolidated_memories": [...],
+        "keep_memories": [...]
     }
+    ```
+
+    ### Field Descriptions
+
+    **keep_memories** (REQUIRED - must be an array, never null):
+    - List of metadata.id values (as strings) for memories to KEEP unchanged
+    - Use empty array [] to delete ALL input memories
+    - Example: ["123", "456"] keeps memories with those IDs
+    - Example: [] deletes all input memories
+
+    **consolidated_memories** (REQUIRED - must be an array, never null):
+    - List of NEW memories to create after consolidation
+    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
+    - Use empty array [] if no new memories needed
+    - Example: [{"tag": "interests", "feature": "HOBBY", "value": "photography"}]
+
+    ### Examples
+
+    No changes needed (keep all, add nothing):
+    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
+
+    Delete duplicates (keep one):
+    {"consolidated_memories": [], "keep_memories": ["1"]}
+
+    Merge and replace (delete all, create new):
+    {"consolidated_memories": [{"tag": "interests", "feature": "HOBBIES", "value": "photography, cooking"}], "keep_memories": []}
+
+    Delete all (no replacements):
+    {"consolidated_memories": [], "keep_memories": []}
     """

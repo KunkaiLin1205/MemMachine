@@ -197,12 +197,41 @@ task_assistant_consolidation_prompt = """
     More memories = more interference = more cognitive load.
     Be aggressive: some distinctions aren't worth maintaining. Delete ruthlessly.
 
-    ## OUTPUT SCHEMA
+    ## OUTPUT FORMAT
 
+    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
+
+    ### Output Schema
     ```
     <think> your reasoning </think>
-    {"consolidate_memories": [...], "keep_memories": [...]}
+    {"consolidated_memories": [...], "keep_memories": [...]}
     ```
+
+    ### Field Descriptions
+
+    **keep_memories** (REQUIRED - must be an array, never null):
+    - List of metadata.id values (as strings) for memories to KEEP unchanged
+    - Use empty array [] to delete ALL input memories
+    - Example: ["123", "456"] keeps memories with those IDs
+
+    **consolidated_memories** (REQUIRED - must be an array, never null):
+    - List of NEW memories to create after consolidation
+    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
+    - Use empty array [] if no new memories needed
+
+    ### Examples
+
+    Keep one, delete duplicates:
+    {"consolidated_memories": [], "keep_memories": ["1"]}
+
+    Delete sensitive data (delete all):
+    {"consolidated_memories": [], "keep_memories": []}
+
+    Keep all unchanged:
+    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
+
+    Merge into new memory:
+    {"consolidated_memories": [{"tag": "contacts", "feature": "EMAIL PRIMARY", "value": "user@example.com"}], "keep_memories": []}
 """
 
 TaskAssistantSemanticCategory = SemanticCategory(
