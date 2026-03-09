@@ -35,6 +35,21 @@ def _features_to_llm_format(
     return structured_features
 
 
+def _features_to_consolidation_format(
+    features: list[SemanticFeature],
+) -> list[dict[str, object]]:
+    """Convert features to consolidation format with id for LLM to reference."""
+    return [
+        {
+            "tag": feature.tag,
+            "feature": feature.feature_name,
+            "value": feature.value,
+            "metadata": {"id": feature.metadata.id},
+        }
+        for feature in features
+    ]
+
+
 class _SemanticFeatureUpdateRes(BaseModel):
     """Schema used to validate parsed feature-update commands returned by the LLM."""
 
@@ -99,14 +114,21 @@ async def llm_consolidate_features(
     consolidate_prompt: str,
 ) -> SemanticConsolidateMemoryRes | None:
     """Merge overlapping features and return consolidation commands from the LLM."""
+    # Use consolidation format that includes feature IDs for LLM to reference
+    features_json = json.dumps(_features_to_consolidation_format(features))
+    logger.info("Consolidating %d features: %s", len(features), features_json)
+
     parsed_output = await model.generate_parsed_response(
         system_prompt=consolidate_prompt,
-        user_prompt=json.dumps(_features_to_llm_format(features)),
+        user_prompt=features_json,
         output_format=SemanticConsolidateMemoryRes,
     )
 
     if parsed_output is None:
+        logger.warning("LLM returned None for consolidation")
         return None
+
+    logger.info("Consolidation response: %s", parsed_output)
 
     validated_output = TypeAdapter(SemanticConsolidateMemoryRes).validate_python(
         parsed_output,

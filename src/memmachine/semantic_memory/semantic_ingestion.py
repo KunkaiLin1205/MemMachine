@@ -366,15 +366,29 @@ class IngestionService:
                 raise ValueError("Failed to consolidate features")
             return
 
+        logger.info(
+            "Consolidation result: keep_memories=%s, consolidated_memories=%d",
+            consolidate_resp.keep_memories,
+            len(consolidate_resp.consolidated_memories),
+        )
+
         memories_to_delete = [
             m
             for m in memories
             if m.metadata.id is not None
             and m.metadata.id not in consolidate_resp.keep_memories
         ]
-        await self._semantic_storage.delete_features(
-            [m.metadata.id for m in memories_to_delete if m.metadata.id is not None],
-        )
+
+        if memories_to_delete:
+            delete_ids = [
+                m.metadata.id for m in memories_to_delete if m.metadata.id is not None
+            ]
+            logger.info(
+                "Deleting %d features: %s",
+                len(delete_ids),
+                delete_ids,
+            )
+            await self._semantic_storage.delete_features(delete_ids)
 
         merged_citations: chain[EpisodeIdT] = itertools.chain.from_iterable(
             [
@@ -398,12 +412,23 @@ class IngestionService:
                 value=f.value,
                 embedding=np.array(value_embedding),
             )
+            logger.info(
+                "Added consolidated feature: id=%s, tag=%s, feature=%s",
+                f_id,
+                f.tag,
+                f.feature,
+            )
 
             await self._semantic_storage.add_citations(f_id, citation_ids)
 
-        await asyncio.gather(
-            *[
-                _add_feature(feature)
-                for feature in consolidate_resp.consolidated_memories
-            ],
-        )
+        if consolidate_resp.consolidated_memories:
+            logger.info(
+                "Adding %d consolidated features",
+                len(consolidate_resp.consolidated_memories),
+            )
+            await asyncio.gather(
+                *[
+                    _add_feature(feature)
+                    for feature in consolidate_resp.consolidated_memories
+                ],
+            )
