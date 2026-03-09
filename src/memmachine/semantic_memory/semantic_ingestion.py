@@ -55,7 +55,7 @@ class IngestionService:
         semantic_storage: InstanceOf[SemanticStorage]
         history_store: InstanceOf[EpisodeStorage]
         resource_retriever: InstanceOf[ResourceRetriever]
-        consolidated_threshold: int = 20
+        consolidated_threshold: int = 10
         debug_fail_loudly: bool = False
 
     def __init__(self, params: Params) -> None:
