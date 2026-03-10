@@ -44,6 +44,7 @@ task_assistant_description = """
     You MUST ONLY use: basics, contacts, identities, accounts, preferences, relationships, services, others
     - DO NOT create new tags - choose the closest matching tag
     - Use "others" only when information clearly doesn't belong elsewhere
+    - CRITICAL: Tags are case-sensitive and MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts")
     
     ## WHAT TO EXTRACT
     
@@ -80,7 +81,8 @@ task_assistant_description = """
     ## FEATURE NAMING RULES
     
     ### Format
-    - Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
+    - MUST Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
+    - MUST NOT use underscores or other special characters in feature names
     - Use full words, not abbreviations
     - Be specific and descriptive
     
@@ -149,7 +151,7 @@ task_assistant_consolidation_prompt = """
 
     ### Tags
     Only use: basics, contacts, identities, accounts, preferences, relationships, services, others
-
+    - CRITICAL: Tags MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts")
     ### Feature Names
     - UPPERCASE with SPACES (e.g., "PHONE NUMBER", "EMAIL")
     - Use suffixes for multiple accounts: "EMAIL WORK", "EMAIL PERSONAL"
@@ -177,8 +179,31 @@ task_assistant_consolidation_prompt = """
     - Employee ID, student ID, member ID, customer ID
     - Birthdate, occupation, preferences
 
-    ### 1. Identical Information
-    DELETE duplicates, KEEP only one
+    ### 1. Identical or Nearly Identical Information
+    
+    **Same tag + same feature name + same/similar value:**
+    - DELETE all duplicates, KEEP only one (the most complete version)
+    - Or DELETE all, CREATE one consolidated version
+    
+    Examples:
+    - tag="contacts", feature="EMAIL", value="user@example.com"
+    - tag="contacts", feature="EMAIL", value="user@example.com"
+    → DELETE duplicate, KEEP one
+    
+    - tag="basics", feature="FULL NAME", value="John Smith"
+    - tag="basics", feature="FULL NAME", value="John D. Smith"
+    → DELETE incomplete, KEEP: {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith"}
+    
+    **Same tag + same feature name + different value:**
+    - This usually means different accounts or evolution
+    - If different accounts: UPDATE feature names with suffixes
+    - If evolution: DELETE old, KEEP new
+    
+    Examples:
+    - tag="contacts", feature="EMAIL", value="personal@email.com"
+    - tag="contacts", feature="EMAIL", value="work@company.com"
+    → DELETE both, CREATE: {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com"}
+                          {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com"}
 
     ### 2. Different Accounts
     UPDATE feature names with suffixes (e.g., "EMAIL WORK", "EMAIL PERSONAL")
@@ -197,12 +222,41 @@ task_assistant_consolidation_prompt = """
     More memories = more interference = more cognitive load.
     Be aggressive: some distinctions aren't worth maintaining. Delete ruthlessly.
 
-    ## OUTPUT SCHEMA
+    ## OUTPUT FORMAT
 
+    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
+
+    ### Output Schema
     ```
     <think> your reasoning </think>
-    {"consolidate_memories": [...], "keep_memories": [...]}
+    {"consolidated_memories": [...], "keep_memories": [...]}
     ```
+
+    ### Field Descriptions
+
+    **keep_memories** (REQUIRED - must be an array, never null):
+    - List of metadata.id values (as strings) for memories to KEEP unchanged
+    - Use empty array [] to delete ALL input memories
+    - Example: ["123", "456"] keeps memories with those IDs
+
+    **consolidated_memories** (REQUIRED - must be an array, never null):
+    - List of NEW memories to create after consolidation
+    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
+    - Use empty array [] if no new memories needed
+
+    ### Examples
+
+    Keep one, delete duplicates:
+    {"consolidated_memories": [], "keep_memories": ["1"]}
+
+    Delete sensitive data (delete all):
+    {"consolidated_memories": [], "keep_memories": []}
+
+    Keep all unchanged:
+    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
+
+    Merge into new memory:
+    {"consolidated_memories": [{"tag": "contacts", "feature": "EMAIL PRIMARY", "value": "user@example.com"}], "keep_memories": []}
 """
 
 TaskAssistantSemanticCategory = SemanticCategory(
