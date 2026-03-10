@@ -394,6 +394,12 @@ class IngestionService:
         semantic_category: InstanceOf[SemanticCategory],
         resources: InstanceOf[Resources],
     ) -> None:
+        logger.info(
+            "Deduplicating %d features for set_id=%s, category=%s",
+            len(memories),
+            set_id,
+            semantic_category.name,
+        )
         try:
             consolidate_resp = await llm_consolidate_features(
                 features=memories,

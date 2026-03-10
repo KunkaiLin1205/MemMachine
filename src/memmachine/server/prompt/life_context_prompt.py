@@ -24,42 +24,41 @@ life_context_tags: dict[str, str] = {
 
 # Optimized description for life-oriented personal context
 life_context_description = """
-    You are a PERSONAL INSIGHT EXTRACTOR for a life advisor assistant. Extract deep personal 
-    understanding that enables meaningful life guidance and personalized advice.
+    You are extracting life-oriented personal context from conversations with a life advisor assistant.
+    This information is used to provide personalized life guidance and understand the user's psychological profile.
     
     ## YOUR ROLE
     
-    Extract:
-    - WHY and HOW the user thinks, feels, and behaves (motivations, patterns, characteristics)
-    - Personal insights, values, goals, and life context
-    - Psychological profile and life understanding
+    - Extract personal insights: WHY and HOW the user thinks, feels, and behaves
+    - Store interests, lifestyle patterns, goals, personality traits, and life circumstances
+    - Build a psychological profile that enables meaningful, personalized advice
     
     Do NOT Extract:
-    - WHAT the user has (facts, data, contact info, account numbers) → task_assistant_prompt
-    - Historical events or temporary states → episodic memory
-    
-    Think of yourself as: Building a psychological profile, not a contact book.
+    - WHAT the user has (contact info, account numbers) → task_assistant_prompt extracts those
+    - Historical events or temporary states → episodic memory stores those
     
     Important: Semantic memory is for STABLE, REUSABLE information.
     ALWAYS compare with existing features before creating new ones.
     
     ## TAG RULES
     
-    Only use: interests, lifestyle, goals, personality, life_situation
+    You MUST ONLY use: interests, lifestyle, goals, personality, life_situation
     - interests: hobbies, passions, entertainment preferences
     - lifestyle: routines, habits, work-life balance
     - goals: aspirations, objectives, plans
     - personality: character traits, behavioral patterns
-    - life_situation: circumstances, context
+    - life_situation: stable circumstances, context
+    - DO NOT create new tags - choose the closest matching tag
     - CRITICAL: Tags are case-sensitive and MUST be lowercase (e.g., "interests" NOT "INTERESTS" or "Interests")
     
     ## WHAT TO EXTRACT
     
-    - Interests: hobbies, passions, creative pursuits, learning interests, entertainment
-    - Lifestyle: daily routines, sleep patterns, exercise habits, dietary habits
-    - Goals: career aspirations, personal development, health goals, life vision
-    - Personality: communication style, decision-making, introversion/extroversion
-    - Life situation: living situation (city/region), family structure, work situation
+    Stable, long-term information:
+    - Interests: hobbies, passions, creative pursuits, learning interests, entertainment preferences
+    - Lifestyle: daily routines, sleep patterns, exercise habits, dietary habits, work-life balance
+    - Goals: career aspirations, personal development goals, health goals, life vision, educational goals
+    - Personality: communication style, decision-making style, introversion/extroversion, emotional patterns
+    - Life Situation: living situation (city/region), family structure, work situation, major life stage
     - Values: core values, priorities, what drives decisions
     
     Key Question: "Will this still be accurate in 6 months?" If YES → extract. If NO → skip.
@@ -68,12 +67,14 @@ life_context_description = """
     
     ### Temporary/Transient Information (belongs in episodic memory)
     - Current location, travel status, temporary residence (hotels, Airbnbs)
-    - Historical events, past actions, current projects or tasks
+    - Historical events, past actions, current projects or specific tasks
     - Temporary moods, situational feelings, context-dependent choices
+    - Time-bound information (e.g., "going to gym today" vs stable "exercises regularly")
     
     ### Structured Facts (belongs in task_assistant_prompt)
     - Contact info (phone, email), IDs, account numbers
     - Service provider contact details
+    - Specific addresses, appointments, schedules
     
     ### Highly Sensitive PII (never store for security)
     - Government IDs: SSN, passport numbers, driver's license numbers
@@ -81,50 +82,77 @@ life_context_description = """
     - Security: passwords, PINs, authentication credentials
     - Private records: medical records, financial records, legal documents
     
+    Examples:
+    - "I'm currently at the gym" → DO NOT EXTRACT (temporary state)
+    - "I go to the gym 3 times a week" → EXTRACT as EXERCISE HABIT (stable pattern)
+    - "My SSN is 123-45-6789" → DO NOT EXTRACT (sensitive PII)
+    
     ## FEATURE NAMING RULES
     
     ### Format
-    - UPPERCASE with SPACES (e.g., "PRIMARY INTEREST", "CAREER GOAL")
-    - Full words, not abbreviations
-    - Be descriptive and meaningful
+    - Use UPPERCASE letters with SPACES between words (e.g., "EXERCISE HABIT", "CAREER GOAL")
+    - Use full words, not abbreviations
+    - Be specific and descriptive
     
-    ### Standard Names by Tag
+    ### Standard Feature Names by Tag
     
-    **Interests:** "PRIMARY INTEREST", "SECONDARY INTEREST", "PASSION"
-    - Multiple: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
+    **Interests:** Use descriptive suffixes for multiple interests
+    - For specific interests: "INTEREST PHOTOGRAPHY", "INTEREST COOKING", "INTEREST GAMING"
+    - Avoid vague names like "PRIMARY INTEREST" or "SECONDARY INTEREST"
     
-    **Lifestyle:** "WORK LIFE BALANCE STYLE", "EXERCISE HABIT", "SLEEP PATTERN", "DIETARY HABIT", "DAILY ROUTINE"
-    - Multiple: "ROUTINE MORNING", "ROUTINE EVENING"
+    **Lifestyle:** 
+    - "EXERCISE HABIT", "SLEEP PATTERN", "DIETARY HABIT", "WORK LIFE BALANCE STYLE"
+    - Multiple routines: "ROUTINE MORNING", "ROUTINE EVENING"
     
-    **Goals:** "CAREER GOAL", "HEALTH GOAL", "FINANCIAL GOAL", "PERSONAL DEVELOPMENT GOAL", "LIFE VISION"
-    - Multiple: "CAREER GOAL PRIMARY", "CAREER GOAL SECONDARY"
+    **Goals:**
+    - "CAREER GOAL", "HEALTH GOAL", "FINANCIAL GOAL", "PERSONAL DEVELOPMENT GOAL", "LIFE VISION"
+    - Multiple goals of same type: "CAREER GOAL PRIMARY", "CAREER GOAL ENTREPRENEURIAL"
     
-    **Personality:** "COMMUNICATION STYLE", "DECISION MAKING STYLE", "SOCIAL PREFERENCE", "EMOTIONAL PATTERN"
+    **Personality:**
+    - "COMMUNICATION STYLE", "DECISION MAKING STYLE", "SOCIAL PREFERENCE", "EMOTIONAL PATTERN"
     
-    **Life Situation:** "CURRENT LIFE STAGE", "CORE VALUE", "FAMILY SITUATION", "WORK SITUATION"
-    - Multiple: "CORE VALUE FAMILY", "CORE VALUE CAREER"
+    **Life Situation:**
+    - "CURRENT LIFE STAGE", "FAMILY SITUATION", "WORK SITUATION"
+    - Core values: "CORE VALUE FAMILY", "CORE VALUE CAREER"
+    
+    ### Multiple Items
+    Use SUFFIXES to distinguish similar items:
+    - Multiple interests: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
+    - Multiple values: "CORE VALUE FAMILY", "CORE VALUE CAREER"
     
     ## HANDLING DUPLICATES AND UPDATES
     
     Before adding or updating:
-    1. Compare with existing features
+    1. Compare with existing features to check for duplicates
     2. Analyze if it's the same or different information
     
     ### Decision Rules
-    - SAME information: OVERWRITE using UPDATE
-    - DIFFERENT information: Create new with different suffix
+    - SAME information (same meaning): OVERWRITE using UPDATE command
+    - DIFFERENT information: Create new feature with descriptive suffix
+    - Avoid creating vague duplicates like multiple "PRIMARY INTEREST" entries
     
-    Example: Existing "CAREER GOAL" is "become a manager", new claim is "start a side business"
-    → Keep "CAREER GOAL" and ADD "CAREER GOAL ENTREPRENEURIAL"
+    Examples:
+    - Existing "INTEREST PHOTOGRAPHY", new claim "User likes photography"
+      → Skip (duplicate)
+    
+    - Existing "CAREER GOAL": "become a manager", new claim "become a senior manager"
+      → UPDATE "CAREER GOAL" (evolution of same goal)
+    
+    - Existing "CAREER GOAL": "become a manager", new claim "start a side business"
+      → Keep "CAREER GOAL" and ADD "CAREER GOAL ENTREPRENEURIAL" (different goals)
+    
+    - Existing "PRIMARY INTEREST": "photography", new claim "User likes cooking"
+      → DELETE "PRIMARY INTEREST", ADD "INTEREST PHOTOGRAPHY" and "INTEREST COOKING" (better naming)
     
     ## EXTRACTION PROCESS
     
-    1. Compare with existing features to identify duplicates
-    2. Select correct tag (DO NOT create new tags)
-    3. Use standard feature names
-    4. For duplicates: same info → UPDATE, different info → create with suffix
-    5. Extract INSIGHTS and UNDERSTANDING, not just facts
+    1. Compare with existing features to identify duplicates or updates
+    2. Select the correct tag (DO NOT create new tags)
+    3. Use specific, descriptive feature names (avoid vague names like "PRIMARY INTEREST")
+    4. For duplicates: same info → UPDATE, different info → create with descriptive suffix
+    5. Extract INSIGHTS and UNDERSTANDING, not just surface facts
     6. Look for underlying motivations, values, and personality traits
+    7. Avoid extracting sensitive PII or temporary states
     
     Priority: personality/life_situation > goals > lifestyle > interests
 """
@@ -151,13 +179,12 @@ life_context_consolidation_prompt = """
     ### Tags
     Only use: interests, lifestyle, goals, personality, life_situation
     - CRITICAL: Tags MUST be lowercase (e.g., "interests" NOT "INTERESTS" or "Interests")
-    - Tags are case-sensitive - wrong casing will cause system errors
 
     ### Feature Names
     - UPPERCASE with SPACES (e.g., "PRIMARY INTEREST", "CAREER GOAL")
-    - Use suffixes for multiple items: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
+    - For multiple items of same type, use descriptive suffixes: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
     - Standard names:
-      - Interests: "PRIMARY INTEREST", "SECONDARY INTEREST", "PASSION"
+      - Interests: "INTEREST [NAME]" for specific interests (e.g., "INTEREST PHOTOGRAPHY")
       - Lifestyle: "EXERCISE HABIT", "SLEEP PATTERN", "DIETARY HABIT"
       - Goals: "CAREER GOAL", "HEALTH GOAL", "FINANCIAL GOAL", "LIFE VISION"
       - Personality: "COMMUNICATION STYLE", "DECISION MAKING STYLE", "SOCIAL PREFERENCE"
@@ -179,32 +206,71 @@ life_context_consolidation_prompt = """
     - Time-bound information, current projects
     - ASK: "Will this still be true in 6 months?" If NO → DELETE
 
-    ### 1. Identical Information
-    DELETE duplicates, KEEP only one
+    **OK to Keep:**
+    - Long-term interests, stable lifestyle patterns
+    - Personality traits, life goals
+    - Core values, stable life circumstances
 
-    ### 2. Evolution vs Different Items
-    - Evolution/refinement: KEEP most complete/current version
-    - Different items: UPDATE feature names with suffixes
+    ### 1. Identical or Nearly Identical Information
+    
+    **Same tag + same feature name + same/similar value:**
+    - DELETE all duplicates, KEEP only one (the most complete version)
+    - Or DELETE all, CREATE one consolidated version
+    
+    Examples:
+    - tag="interests", feature="INTEREST PHOTOGRAPHY", value="User likes photography"
+    - tag="interests", feature="INTEREST PHOTOGRAPHY", value="User enjoys photography"
+    → DELETE both, CREATE: {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby"}
+    
+    - tag="interests", feature="INTEREST BIKING", value="User likes biking"
+    - tag="interests", feature="INTEREST BIKING", value="User likes biking."  (with period)
+    → DELETE duplicate, KEEP one or CREATE consolidated version
+    
+    **Same tag + same feature name + different value:**
+    - This usually means a mistake or evolution
+    - If evolution: DELETE old, KEEP new
+    - If conflicting: merge into one comprehensive value
+    
+    Example:
+    - tag="goals", feature="CAREER GOAL", value="become a manager"
+    - tag="goals", feature="CAREER GOAL", value="become a senior manager"
+    → DELETE old, KEEP: {"tag": "goals", "feature": "CAREER GOAL", "value": "become a senior manager"}
+
+    ### 2. Multiple Items of Same Type
+    Use descriptive feature names with the item name as suffix
+    
+    Examples:
+    - Multiple "PRIMARY INTEREST" entries → DELETE all, CREATE "INTEREST [NAME]" for each distinct interest
+    - Input: "PRIMARY INTEREST": "photography", "SECONDARY INTEREST": "cooking"
+    - Output: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
+
+    ### 3. Ownership and Relationships
+    When consolidating related interests (e.g., "dogs", "cats", "pets"):
+    - Merge into broader category if appropriate: "INTEREST PETS" with value "User enjoys dogs and cats"
+    - OR keep separate if distinct: "INTEREST DOGS", "INTEREST CATS"
+
+    ### 4. Evolution vs Different Items
+    - Evolution/refinement: DELETE old, KEEP most complete/current version
+    - Different items: CREATE separate features with descriptive names
 
     Example (Evolution): "CAREER GOAL": "become a manager" → "become a senior manager"
-    → Keep "become a senior manager"
+    → DELETE old, KEEP "become a senior manager"
 
-    Example (Different): "PRIMARY INTEREST": "photography" and "cooking"
-    → Keep "INTEREST PHOTOGRAPHY" and "INTEREST COOKING"
+    Example (Different): Multiple hobbies
+    → DELETE vague "PRIMARY INTEREST" entries, CREATE specific "INTEREST [NAME]" for each
 
-    ### 3. Synonyms
-    Consolidate to standard feature name ("MAIN HOBBY" → "PRIMARY INTEREST")
-
-    ### 4. Redundant Information
+    ### 5. Redundant Information
     DELETE incomplete versions, KEEP complete ones
 
-    ### 5. Multiple Items
-    Use consistent suffixes. Don't create suffixes until you have 2+ distinct items.
+    ### 6. Multiple Items
+    Use consistent, descriptive suffixes. Don't create suffixes until you have 2+ distinct items.
 
     ## AGGRESSIVE DELETION
 
     More memories = more interference = more cognitive load.
     Be aggressive: some distinctions aren't worth maintaining. Delete ruthlessly.
+    
+    **IMPORTANT:** Vague feature names like "PRIMARY INTEREST" and "SECONDARY INTEREST" should be replaced with specific names like "INTEREST PHOTOGRAPHY", "INTEREST COOKING".
 
     ## OUTPUT FORMAT
 
@@ -230,17 +296,20 @@ life_context_consolidation_prompt = """
 
     ### Examples
 
-    Keep distinct items unchanged:
-    {"consolidated_memories": [], "keep_memories": ["1", "2"]}
+    Keep one, delete duplicates:
+    {"consolidated_memories": [], "keep_memories": ["1"]}
 
-    Merge duplicates into one:
-    {"consolidated_memories": [{"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby"}], "keep_memories": []}
-
-    Delete temporary/sensitive data:
+    Delete temporary/sensitive data (delete all):
     {"consolidated_memories": [], "keep_memories": []}
 
-    Keep all unchanged:
+    Keep all unchanged (rare - only if truly distinct):
     {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
+
+    Consolidate multiple interests with better naming:
+    {"consolidated_memories": [
+        {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby"},
+        {"tag": "interests", "feature": "INTEREST BIKING", "value": "User likes biking"}
+    ], "keep_memories": []}
 """
 
 LifeContextSemanticCategory = SemanticCategory(

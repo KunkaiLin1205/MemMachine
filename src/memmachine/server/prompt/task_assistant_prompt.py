@@ -178,8 +178,31 @@ task_assistant_consolidation_prompt = """
     - Employee ID, student ID, member ID, customer ID
     - Birthdate, occupation, preferences
 
-    ### 1. Identical Information
-    DELETE duplicates, KEEP only one
+    ### 1. Identical or Nearly Identical Information
+    
+    **Same tag + same feature name + same/similar value:**
+    - DELETE all duplicates, KEEP only one (the most complete version)
+    - Or DELETE all, CREATE one consolidated version
+    
+    Examples:
+    - tag="contacts", feature="EMAIL", value="user@example.com"
+    - tag="contacts", feature="EMAIL", value="user@example.com"
+    → DELETE duplicate, KEEP one
+    
+    - tag="basics", feature="FULL NAME", value="John Smith"
+    - tag="basics", feature="FULL NAME", value="John D. Smith"
+    → DELETE incomplete, KEEP: {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith"}
+    
+    **Same tag + same feature name + different value:**
+    - This usually means different accounts or evolution
+    - If different accounts: UPDATE feature names with suffixes
+    - If evolution: DELETE old, KEEP new
+    
+    Examples:
+    - tag="contacts", feature="EMAIL", value="personal@email.com"
+    - tag="contacts", feature="EMAIL", value="work@company.com"
+    → DELETE both, CREATE: {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com"}
+                          {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com"}
 
     ### 2. Different Accounts
     UPDATE feature names with suffixes (e.g., "EMAIL WORK", "EMAIL PERSONAL")
