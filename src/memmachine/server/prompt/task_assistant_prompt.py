@@ -81,7 +81,8 @@ task_assistant_description = """
     ## FEATURE NAMING RULES
     
     ### Format
-    - Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
+    - MUST Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
+    - MUST NOT use underscores or other special characters in feature names
     - Use full words, not abbreviations
     - Be specific and descriptive
     

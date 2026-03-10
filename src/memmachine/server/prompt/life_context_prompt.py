@@ -182,6 +182,7 @@ life_context_consolidation_prompt = """
 
     ### Feature Names
     - UPPERCASE with SPACES (e.g., "PRIMARY INTEREST", "CAREER GOAL")
+    - MUST NOT use underscores or other special characters in feature names
     - For multiple items of same type, use descriptive suffixes: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
     - Standard names:
       - Interests: "INTEREST [NAME]" for specific interests (e.g., "INTEREST PHOTOGRAPHY")
