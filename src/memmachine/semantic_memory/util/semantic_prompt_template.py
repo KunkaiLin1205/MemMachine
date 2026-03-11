@@ -114,27 +114,6 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
                 "value": "User is young, possibly still in college"
             }
         }
-        Query: Can you go through my inbox and flag any urgent emails from clients, then update the project status spreadsheet with the latest deliverable dates from those emails? Also send a quick message to my manager letting her know I'll have the budget report ready by end of day tomorrow.
-        {
-            "0": {
-                "command": "add",
-                "tag": "basics",
-                "feature": "TRADITIONAL OFFICE JOB",
-                "value": "User does clerical work, reporting to a manager"
-            },
-            "1": {
-                "command": "add",
-                "tag": "basics",
-                "feature": "CLIENT FACING ROLE",
-                "value": "User handles communication of deadlines to and from clients"
-            },
-            "2": {
-                "command": "add",
-                "tag": "basics",
-                "feature": "AUTONOMY AT WORK",
-                "value": "User sets their own deadlines and subtasks."
-            }
-        }
         Further Guidelines:
         - Not everything you ought to record will be explicitly stated. Make inferences.
         - If you are less confident about a particular entry, you should still include it, but make sure that the language you use (briefly) expresses this uncertainty in the value field
