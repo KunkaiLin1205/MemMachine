@@ -99,7 +99,14 @@ class SemanticService:
         filter_expr: FilterExpr | None = None,
     ) -> list[SemanticFeature]:
         resources = self._resource_retriever.get_resources(set_ids[0])
-        query_embedding = (await resources.embedder.search_embed([query]))[0]
+        
+        # Extract project_id from set_id for metrics
+        metrics_context = None
+        if set_ids[0].startswith("mem_user_"):
+            project_id = set_ids[0].replace("mem_user_", "")
+            metrics_context = {"project_id": project_id}
+        
+        query_embedding = (await resources.embedder.search_embed([query], metrics_context=metrics_context))[0]
 
         return await self._semantic_storage.get_feature_set(
             filter_expr=filter_expr,
@@ -164,7 +171,14 @@ class SemanticService:
         citations: list[EpisodeIdT] | None = None,
     ) -> FeatureIdT:
         resources = self._resource_retriever.get_resources(set_id)
-        embedding = (await resources.embedder.ingest_embed([value]))[0]
+        
+        # Extract project_id from set_id for metrics
+        metrics_context = None
+        if set_id.startswith("mem_user_"):
+            project_id = set_id.replace("mem_user_", "")
+            metrics_context = {"project_id": project_id}
+        
+        embedding = (await resources.embedder.ingest_embed([value], metrics_context=metrics_context))[0]
 
         f_id = await self._semantic_storage.add_feature(
             set_id=set_id,

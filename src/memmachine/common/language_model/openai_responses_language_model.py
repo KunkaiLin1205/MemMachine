@@ -93,7 +93,8 @@ class OpenAIResponsesLanguageModel(LanguageModel):
         if metrics_factory is not None:
             self._should_collect_metrics = True
             self._user_metrics_labels = params.user_metrics_labels
-            label_names = self._user_metrics_labels.keys()
+            # Include project_id in label_names for dynamic labeling
+            label_names = list(self._user_metrics_labels.keys()) + ["project_id"]
 
             self._input_tokens_usage_counter = metrics_factory.get_counter(
                 "language_model_openai_usage_input_tokens",
@@ -135,6 +136,7 @@ class OpenAIResponsesLanguageModel(LanguageModel):
         system_prompt: str | None = None,
         user_prompt: str | None = None,
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> T | None:
         """Generate a structured response parsed into the given model."""
         if max_attempts <= 0:
@@ -172,6 +174,7 @@ class OpenAIResponsesLanguageModel(LanguageModel):
             response,
             start_time,
             end_time,
+            metrics_context,
         )
 
         return response.output_parsed
@@ -183,6 +186,7 @@ class OpenAIResponsesLanguageModel(LanguageModel):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] | None = None,
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> tuple[str, Any]:
         """Generate a raw text response (and optional tool call)."""
         if max_attempts <= 0:
@@ -267,6 +271,7 @@ class OpenAIResponsesLanguageModel(LanguageModel):
             response,
             start_time,
             end_time,
+            metrics_context,
         )
 
         if response.output is None:
@@ -297,31 +302,58 @@ class OpenAIResponsesLanguageModel(LanguageModel):
         response: Response,
         start_time: float,
         end_time: float,
+        metrics_context: dict[str, str] | None = None,
     ) -> None:
         if self._should_collect_metrics:
+            # Merge static labels with context labels
+            labels = self._user_metrics_labels.copy()
+            # Ensure project_id is present (Prometheus requirement)
+            labels.setdefault("project_id", "")
+            
+            if metrics_context:
+                labels.update(metrics_context)
+                logger.info(
+                    "[METRICS] _collect_metrics merging labels: static=%s, context=%s, final=%s",
+                    self._user_metrics_labels,
+                    metrics_context,
+                    labels,
+                )
+            else:
+                logger.warning(
+                    "[METRICS] _collect_metrics called WITHOUT metrics_context - no project_id will be attached"
+                )
+            
             if response.usage is not None:
+                logger.info(
+                    "[METRICS] Recording tokens: input=%d, output=%d, total=%d with labels=%s",
+                    response.usage.input_tokens,
+                    response.usage.output_tokens,
+                    response.usage.total_tokens,
+                    labels,
+                )
+                
                 self._input_tokens_usage_counter.increment(
                     value=response.usage.input_tokens,
-                    labels=self._user_metrics_labels,
+                    labels=labels,
                 )
                 self._input_cached_tokens_usage_counter.increment(
                     value=response.usage.input_tokens_details.cached_tokens,
-                    labels=self._user_metrics_labels,
+                    labels=labels,
                 )
                 self._output_tokens_usage_counter.increment(
                     value=response.usage.output_tokens,
-                    labels=self._user_metrics_labels,
+                    labels=labels,
                 )
                 self._output_reasoning_tokens_usage_counter.increment(
                     value=response.usage.output_tokens_details.reasoning_tokens,
-                    labels=self._user_metrics_labels,
+                    labels=labels,
                 )
                 self._total_tokens_usage_counter.increment(
                     value=response.usage.total_tokens,
-                    labels=self._user_metrics_labels,
+                    labels=labels,
                 )
 
             self._latency_summary.observe(
                 value=end_time - start_time,
-                labels=self._user_metrics_labels,
+                labels=labels,
             )

@@ -72,6 +72,7 @@ class SentenceTransformerEmbedder(Embedder):
         self,
         inputs: list[Any],
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Embed input documents using the sentence transformer."""
         return await self._embed(inputs, max_attempts)
@@ -80,6 +81,7 @@ class SentenceTransformerEmbedder(Embedder):
         self,
         queries: list[Any],
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Embed search queries using the sentence transformer."""
         return await self._embed(queries, max_attempts, prompt_name="query")

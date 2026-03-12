@@ -91,7 +91,8 @@ class OpenAIEmbedder(Embedder):
         if metrics_factory is not None:
             self._collect_metrics = True
             self._user_metrics_labels = params.user_metrics_labels
-            label_names = self._user_metrics_labels.keys()
+            # Include project_id in label_names for dynamic labeling
+            label_names = list(self._user_metrics_labels.keys()) + ["project_id"]
 
             self._prompt_tokens_usage_counter = metrics_factory.get_counter(
                 "embedder_openai_usage_prompt_tokens",
@@ -113,22 +114,25 @@ class OpenAIEmbedder(Embedder):
         self,
         inputs: list[Any],
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Embed the provided inputs with retries."""
-        return await self._embed(inputs, max_attempts)
+        return await self._embed(inputs, max_attempts, metrics_context)
 
     async def search_embed(
         self,
         queries: list[Any],
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Embed search queries with retries."""
-        return await self._embed(queries, max_attempts)
+        return await self._embed(queries, max_attempts, metrics_context)
 
     async def _embed(
         self,
         inputs: list[Any],
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Shared retrying embed logic."""
         if not inputs:
@@ -171,6 +175,7 @@ class OpenAIEmbedder(Embedder):
                 cluster_number=cluster_number,
                 chunk_cluster=chunk_cluster,
                 max_attempts=max_attempts,
+                metrics_context=metrics_context,
             )
             for cluster_number, chunk_cluster in enumerate(chunk_clusters)
         ]
@@ -185,9 +190,17 @@ class OpenAIEmbedder(Embedder):
         )
 
         if self._collect_metrics:
+            # Merge static labels with context labels
+            labels = self._user_metrics_labels.copy()
+            # Ensure project_id is present (Prometheus requirement)
+            labels.setdefault("project_id", "")
+            
+            if metrics_context:
+                labels.update(metrics_context)
+            
             self._latency_summary.observe(
                 value=end_time - start_time,
-                labels=self._user_metrics_labels,
+                labels=labels,
             )
 
         chunk_embeddings = [
@@ -212,6 +225,7 @@ class OpenAIEmbedder(Embedder):
         cluster_number: int,
         chunk_cluster: list[str],
         max_attempts: int = 1,
+        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         sleep_seconds = 1
         for attempt in range(1, max_attempts + 1):
@@ -300,13 +314,25 @@ class OpenAIEmbedder(Embedder):
                 raise ExternalServiceAPIError(error_message) from err
 
         if self._collect_metrics:
+            # Merge static labels with context labels
+            labels = self._user_metrics_labels.copy()
+            # Ensure project_id is present (Prometheus requirement)
+            labels.setdefault("project_id", "")
+            
+            if metrics_context:
+                labels.update(metrics_context)
+                logger.info(
+                    "[METRICS] Embedder recording tokens with labels=%s",
+                    labels,
+                )
+            
             self._prompt_tokens_usage_counter.increment(
                 value=response.usage.prompt_tokens,
-                labels=self._user_metrics_labels,
+                labels=labels,
             )
             self._total_tokens_usage_counter.increment(
                 value=response.usage.total_tokens,
-                labels=self._user_metrics_labels,
+                labels=labels,
             )
 
         if len(response.data[0].embedding) != self._dimensions:

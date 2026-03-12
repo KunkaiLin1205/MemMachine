@@ -202,11 +202,18 @@ class IngestionService:
                         )
 
                 try:
+                    # Extract project_id from set_id for metrics
+                    metrics_context = {}
+                    if set_id.startswith("mem_user_"):
+                        project_id = set_id.replace("mem_user_", "")
+                        metrics_context["project_id"] = project_id
+                    
                     commands = await llm_feature_update(
                         features=features,
                         message_content=message.content,
                         model=resources.language_model,
                         update_prompt=semantic_category.prompt.update_prompt,
+                        metrics_context=metrics_context if metrics_context else None,
                     )
                     logger.debug(
                         "LLM generated %d commands for message %s, category %s",
@@ -344,10 +351,16 @@ class IngestionService:
         citation_id: EpisodeIdT | None,
         embedder: InstanceOf[Embedder],
     ) -> None:
+        # Extract project_id from set_id for metrics
+        metrics_context = None
+        if set_id.startswith("mem_user_"):
+            project_id = set_id.replace("mem_user_", "")
+            metrics_context = {"project_id": project_id}
+        
         for command in commands:
             match command.command:
                 case SemanticCommandType.ADD:
-                    value_embedding = (await embedder.ingest_embed([command.value]))[0]
+                    value_embedding = (await embedder.ingest_embed([command.value], metrics_context=metrics_context))[0]
 
                     f_id = await self._semantic_storage.add_feature(
                         set_id=set_id,
@@ -449,10 +462,17 @@ class IngestionService:
         original_tag = memories[0].tag if len(memories) > 0 else None
 
         try:
+            # Extract project_id from set_id for metrics
+            metrics_context = {}
+            if set_id.startswith("mem_user_"):
+                project_id = set_id.replace("mem_user_", "")
+                metrics_context["project_id"] = project_id
+            
             consolidate_resp = await llm_consolidate_features(
                 features=memories,
                 model=resources.language_model,
                 consolidate_prompt=semantic_category.prompt.consolidation_prompt,
+                metrics_context=metrics_context if metrics_context else None,
             )
         except (ValueError, TypeError):
             logger.exception("Failed to update features while calling LLM")
@@ -528,7 +548,13 @@ class IngestionService:
                 )
 
         async def _add_feature(f: LLMReducedFeature) -> None:
-            value_embedding = (await resources.embedder.ingest_embed([f.value]))[0]
+            # Extract project_id from set_id for metrics
+            ctx = None
+            if set_id.startswith("mem_user_"):
+                project_id = set_id.replace("mem_user_", "")
+                ctx = {"project_id": project_id}
+            
+            value_embedding = (await resources.embedder.ingest_embed([f.value], metrics_context=ctx))[0]
 
             f_id = await self._semantic_storage.add_feature(
                 set_id=set_id,
