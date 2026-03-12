@@ -93,8 +93,7 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
         if metrics_factory is not None:
             self._should_collect_metrics = True
             self._user_metrics_labels = params.user_metrics_labels
-            # Include project_id in label_names for dynamic labeling
-            label_names = list(self._user_metrics_labels.keys()) + ["project_id"]
+            label_names = self._user_metrics_labels.keys()
 
             self._input_tokens_usage_counter = metrics_factory.get_counter(
                 "language_model_openai_usage_input_tokens",
@@ -116,11 +115,6 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
                 "Latency in seconds for OpenAI language model requests",
                 label_names=label_names,
             )
-        else:
-            logger.warning(
-                "[METRICS] OpenAI language model initialized WITHOUT metrics collection - "
-                "metrics_factory is None"
-            )
 
     async def generate_parsed_response(
         self,
@@ -128,15 +122,8 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
         system_prompt: str | None = None,
         user_prompt: str | None = None,
         max_attempts: int = 1,
-        metrics_context: dict[str, str] | None = None,
     ) -> T | None:
         """Generate a structured response parsed into the given model."""
-        if metrics_context:
-            logger.info(
-                "[METRICS] generate_parsed_response received metrics_context: %s",
-                metrics_context,
-            )
-        
         if max_attempts <= 0:
             raise ValueError("max_attempts must be a positive integer")
 
@@ -172,7 +159,6 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
             response,
             start_time,
             end_time,
-            metrics_context=metrics_context,
         )
 
         return TypeAdapter(output_format).validate_python(
@@ -186,7 +172,6 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] | None = None,
         max_attempts: int = 1,
-        metrics_context: dict[str, str] | None = None,
     ) -> tuple[str, Any]:
         """Generate a chat completion response (and optional tool call)."""
         if max_attempts <= 0:
@@ -259,7 +244,6 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
             response,
             start_time,
             end_time,
-            metrics_context=metrics_context,
         )
 
         function_calls_arguments = []
@@ -299,50 +283,23 @@ class OpenAIChatCompletionsLanguageModel(LanguageModel):
         response: ChatCompletion,
         start_time: float,
         end_time: float,
-        metrics_context: dict[str, str] | None = None,
     ) -> None:
         if self._should_collect_metrics:
-            # Merge static labels with dynamic context labels
-            labels = self._user_metrics_labels.copy()
-            # Ensure project_id is present (Prometheus requirement)
-            labels.setdefault("project_id", "")
-            
-            if metrics_context:
-                labels.update(metrics_context)
-                logger.info(
-                    "[METRICS] _collect_metrics merging labels: static=%s, context=%s, final=%s",
-                    self._user_metrics_labels,
-                    metrics_context,
-                    labels,
-                )
-            else:
-                logger.warning(
-                    "[METRICS] _collect_metrics called WITHOUT metrics_context - no project_id will be attached"
-                )
-            
             if response.usage is not None:
-                logger.info(
-                    "[METRICS] Recording tokens: input=%d, output=%d, total=%d with labels=%s",
-                    response.usage.prompt_tokens,
-                    response.usage.completion_tokens,
-                    response.usage.total_tokens,
-                    labels,
-                )
-                
                 self._input_tokens_usage_counter.increment(
                     value=response.usage.prompt_tokens,
-                    labels=labels,
+                    labels=self._user_metrics_labels,
                 )
                 self._output_tokens_usage_counter.increment(
                     value=response.usage.completion_tokens,
-                    labels=labels,
+                    labels=self._user_metrics_labels,
                 )
                 self._total_tokens_usage_counter.increment(
                     value=response.usage.total_tokens,
-                    labels=labels,
+                    labels=self._user_metrics_labels,
                 )
 
             self._latency_summary.observe(
                 value=end_time - start_time,
-                labels=labels,
+                labels=self._user_metrics_labels,
             )

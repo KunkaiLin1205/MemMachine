@@ -80,7 +80,6 @@ class AmazonBedrockEmbedder(Embedder):
         self,
         inputs: list[Any],
         max_attempts: int = 1,
-        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Embed input documents."""
         return await self._embed(
@@ -100,7 +99,6 @@ class AmazonBedrockEmbedder(Embedder):
         self,
         queries: list[Any],
         max_attempts: int = 1,
-        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Embed search queries."""
         return await self._embed(

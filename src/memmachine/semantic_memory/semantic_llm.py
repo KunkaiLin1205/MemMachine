@@ -62,7 +62,6 @@ async def llm_feature_update(
     message_content: str,
     model: InstanceOf[LanguageModel],
     update_prompt: str,
-    metrics_context: dict[str, str] | None = None,
 ) -> list[SemanticCommand]:
     """Generate feature update commands from an incoming message using the LLM."""
     user_prompt = (
@@ -81,7 +80,6 @@ async def llm_feature_update(
         system_prompt=update_prompt,
         user_prompt=user_prompt,
         output_format=_SemanticFeatureUpdateRes,
-        metrics_context=metrics_context,
     )
 
     if parsed_output is None:
@@ -114,7 +112,6 @@ async def llm_consolidate_features(
     features: list[SemanticFeature],
     model: InstanceOf[LanguageModel],
     consolidate_prompt: str,
-    metrics_context: dict[str, str] | None = None,
 ) -> SemanticConsolidateMemoryRes | None:
     """Merge overlapping features and return consolidation commands from the LLM."""
     # Use consolidation format that includes feature IDs for LLM to reference
@@ -125,7 +122,6 @@ async def llm_consolidate_features(
         system_prompt=consolidate_prompt,
         user_prompt=features_json,
         output_format=SemanticConsolidateMemoryRes,
-        metrics_context=metrics_context,
     )
 
     if parsed_output is None:

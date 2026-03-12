@@ -14,7 +14,6 @@ class Embedder(ABC):
         self,
         inputs: list[Any],
         max_attempts: int = 1,
-        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Generate embeddings for the provided inputs."""
         raise NotImplementedError
@@ -24,7 +23,6 @@ class Embedder(ABC):
         self,
         queries: list[Any],
         max_attempts: int = 1,
-        metrics_context: dict[str, str] | None = None,
     ) -> list[list[float]]:
         """Generate embeddings for the provided queries."""
         raise NotImplementedError
