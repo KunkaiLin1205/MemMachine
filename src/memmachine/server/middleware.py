@@ -45,11 +45,21 @@ class AccessLogMiddleware(BaseHTTPMiddleware):
 class RequestMetricsMiddleware(BaseHTTPMiddleware, WithMetricsFactory):
     """Middleware to record metrics for each HTTP request."""
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, metrics_factory_id: str | None = None) -> None:
         """Initialize the middleware and metrics."""
-        self.metrics_factory_id: str | None = None
+        self.metrics_factory_id: str | None = metrics_factory_id or "prometheus"
         super().__init__(app)
+        
+        logger.info(
+            "Initializing RequestMetricsMiddleware with metrics_factory_id=%s",
+            self.metrics_factory_id
+        )
+        
         metrics_factory = self.get_metrics_factory()
+        logger.info(
+            "Got metrics factory: %s",
+            type(metrics_factory).__name__
+        )
 
         self._request_counter = metrics_factory.get_counter(
             "http_requests_total",
@@ -62,6 +72,8 @@ class RequestMetricsMiddleware(BaseHTTPMiddleware, WithMetricsFactory):
             "Duration of HTTP requests in seconds",
             label_names=("method", "path", "status"),
         )
+        
+        logger.info("RequestMetricsMiddleware initialized successfully")
 
     async def dispatch(
         self, request: Request, call_next: RequestResponseEndpoint

@@ -80,7 +80,14 @@ class MemMachineAPI(FastAPI):
 
 app = MemMachineAPI(lifespan=mcp_http_lifespan)
 app.add_middleware(cast(type, AccessLogMiddleware))
-app.add_middleware(cast(type, RequestMetricsMiddleware))
+
+# Determine metrics factory based on environment
+# This needs to be done at import time since middleware is added at module level
+_metrics_factory_id = "otel" if os.getenv("OTEL_METRICS_ENABLED", "false").lower() == "true" else "prometheus"
+app.add_middleware(
+    cast(type, RequestMetricsMiddleware),
+    metrics_factory_id=_metrics_factory_id
+)
 
 
 def start_http() -> None:
