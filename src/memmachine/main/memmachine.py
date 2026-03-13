@@ -344,6 +344,7 @@ class MemMachine:
         | None = None,  # TODO: Define if limit is per memory or is global limit
         score_threshold: float = -float("inf"),
         search_filter: str | None = None,
+        min_distance: float | None = 0.3,  # Semantic memory similarity threshold
     ) -> SearchResponse:
         episodic_task: Task | None = None
         semantic_task: Task | None = None
@@ -371,10 +372,11 @@ class MemMachine:
             ]
             logger.debug(
                 "query_search - Searching semantic memory with isolation types: %s, "
-                "user_profile_id: %s, session_id: %s",
+                "user_profile_id: %s, session_id: %s, min_distance: %s",
                 [t.value for t in search_isolation_types],
                 session_data.user_profile_id,
                 session_data.session_id,
+                min_distance,
             )
             semantic_task = asyncio.create_task(
                 semantic_session.search(
@@ -383,6 +385,7 @@ class MemMachine:
                     session_data=session_data,
                     limit=limit,
                     search_filter=property_filter,
+                    min_distance=min_distance,
                 )
             )
 
