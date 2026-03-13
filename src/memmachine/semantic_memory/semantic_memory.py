@@ -40,7 +40,7 @@ class SemanticService:
 
         semantic_storage: InstanceOf[SemanticStorage]
         episode_storage: InstanceOf[EpisodeStorage]
-        consolidation_threshold: int = 20
+        consolidation_threshold: int = 10
 
         feature_update_interval_sec: float = 2.0
 
@@ -265,6 +265,7 @@ class SemanticService:
                 semantic_storage=self._semantic_storage,
                 resource_retriever=self._resource_retriever,
                 history_store=self._episode_storage,
+                consolidated_threshold=self._consolidation_threshold,
             ),
         )
 

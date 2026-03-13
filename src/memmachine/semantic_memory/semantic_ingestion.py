@@ -55,7 +55,7 @@ class IngestionService:
         semantic_storage: InstanceOf[SemanticStorage]
         history_store: InstanceOf[EpisodeStorage]
         resource_retriever: InstanceOf[ResourceRetriever]
-        consolidated_threshold: int = 20
+        consolidated_threshold: int = 10
         debug_fail_loudly: bool = False
 
     def __init__(self, params: Params) -> None:
@@ -170,6 +170,37 @@ class IngestionService:
                     semantic_category.name,
                 )
 
+                if semantic_category.name == "profile":
+                    # Filter features to only include valid tags for profile category
+                    valid_tags = {"basics", "contacts", "identities", "accounts", "preferences", "relationships", "services", "others"}
+                    original_count = len(features)
+                    features = [f for f in features if f.tag in valid_tags]
+                    filtered_count = original_count - len(features)
+                    
+                    if filtered_count > 0:
+                        logger.info(
+                            "Filtered out %d features with invalid tags for profile category - set_id=%s, message_id=%s, kept=%d features",
+                            filtered_count,
+                            set_id,
+                            message.uid,
+                            len(features),
+                        )
+                elif semantic_category.name == "profile_life_context":
+                    # Filter features to only include valid tags for profile_life_context category
+                    valid_tags = {"interests", "lifestyle", "goals", "personality", "life_situation"}
+                    original_count = len(features)
+                    features = [f for f in features if f.tag in valid_tags]
+                    filtered_count = original_count - len(features)
+                    
+                    if filtered_count > 0:
+                        logger.info(
+                            "Filtered out %d features with invalid tags for profile_life_context category - set_id=%s, message_id=%s, kept=%d features",
+                            filtered_count,
+                            set_id,
+                            message.uid,
+                            len(features),
+                        )
+
                 try:
                     commands = await llm_feature_update(
                         features=features,
@@ -183,6 +214,66 @@ class IngestionService:
                         message.uid,
                         semantic_category.name,
                     )
+                    
+                    # Normalize and validate tags for profile category
+                    if semantic_category.name == "profile":
+                        valid_tags = {"basics", "contacts", "identities", "accounts", "preferences", "relationships", "services", "others"}
+                        default_tag = "others"
+                        corrected_count = 0
+                        for cmd in commands:
+                            original_tag = cmd.tag
+                            # First, convert to lowercase
+                            normalized_tag = cmd.tag.lower().strip()
+                            # Then check if it's in valid tags
+                            if normalized_tag not in valid_tags:
+                                normalized_tag = default_tag
+                            
+                            if original_tag != normalized_tag:
+                                corrected_count += 1
+                                logger.info(
+                                    "Corrected tag '%s' -> '%s' for command in message %s",
+                                    original_tag,
+                                    normalized_tag,
+                                    message.uid,
+                                )
+                            cmd.tag = normalized_tag
+                        
+                        if corrected_count > 0:
+                            logger.warning(
+                                "Corrected %d tag(s) for profile category - set_id=%s, message_id=%s",
+                                corrected_count,
+                                set_id,
+                                message.uid,
+                            )
+                    elif semantic_category.name == "profile_life_context":
+                        valid_tags = {"interests", "lifestyle", "goals", "personality", "life_situation"}
+                        default_tag = "interests"  # Default to interests as it's the most general
+                        corrected_count = 0
+                        for cmd in commands:
+                            original_tag = cmd.tag
+                            # First, convert to lowercase
+                            normalized_tag = cmd.tag.lower().strip()
+                            # Then check if it's in valid tags
+                            if normalized_tag not in valid_tags:
+                                normalized_tag = default_tag
+                            
+                            if original_tag != normalized_tag:
+                                corrected_count += 1
+                                logger.info(
+                                    "Corrected tag '%s' -> '%s' for command in message %s",
+                                    original_tag,
+                                    normalized_tag,
+                                    message.uid,
+                                )
+                            cmd.tag = normalized_tag
+                        
+                        if corrected_count > 0:
+                            logger.warning(
+                                "Corrected %d tag(s) for profile_life_context category - set_id=%s, message_id=%s",
+                                corrected_count,
+                                set_id,
+                                message.uid,
+                            )
                 except Exception:
                     logger.exception(
                         "Failed to process message %s for semantic type %s",
@@ -318,7 +409,7 @@ class IngestionService:
             )
 
             consolidation_sections: list[list[SemanticFeature]] = list(
-                SemanticFeature.group_features_by_tag(features).values(),
+                SemanticFeature.group_features_by_tag_only(features).values(),
             )
 
             await asyncio.gather(
@@ -348,6 +439,15 @@ class IngestionService:
         semantic_category: InstanceOf[SemanticCategory],
         resources: InstanceOf[Resources],
     ) -> None:
+        logger.info(
+            "Deduplicating %d features for set_id=%s, category=%s",
+            len(memories),
+            set_id,
+            semantic_category.name,
+        )
+
+        original_tag = memories[0].tag if len(memories) > 0 else None
+
         try:
             consolidate_resp = await llm_consolidate_features(
                 features=memories,
@@ -366,15 +466,29 @@ class IngestionService:
                 raise ValueError("Failed to consolidate features")
             return
 
+        logger.info(
+            "Consolidation result: keep_memories=%s, consolidated_memories=%d",
+            consolidate_resp.keep_memories,
+            len(consolidate_resp.consolidated_memories),
+        )
+
         memories_to_delete = [
             m
             for m in memories
             if m.metadata.id is not None
             and m.metadata.id not in consolidate_resp.keep_memories
         ]
-        await self._semantic_storage.delete_features(
-            [m.metadata.id for m in memories_to_delete if m.metadata.id is not None],
-        )
+
+        if memories_to_delete:
+            delete_ids = [
+                m.metadata.id for m in memories_to_delete if m.metadata.id is not None
+            ]
+            logger.info(
+                "Deleting %d features: %s",
+                len(delete_ids),
+                delete_ids,
+            )
+            await self._semantic_storage.delete_features(delete_ids)
 
         merged_citations: chain[EpisodeIdT] = itertools.chain.from_iterable(
             [
@@ -387,6 +501,32 @@ class IngestionService:
             list(merged_citations),
         )
 
+        # Ensure consolidated memories maintain the same tag as input memories
+        # All input memories should have the same tag (grouped by tag)
+        if original_tag and consolidate_resp.consolidated_memories:
+            expected_tag = original_tag
+            corrected_count = 0
+            
+            for f in consolidate_resp.consolidated_memories:
+                if f.tag != expected_tag:
+                    corrected_count += 1
+                    logger.warning(
+                        "Consolidation changed tag from '%s' to '%s' for feature '%s' - fixing to maintain input tag",
+                        expected_tag,
+                        f.tag,
+                        f.feature,
+                    )
+                    f.tag = expected_tag
+            
+            if corrected_count > 0:
+                logger.warning(
+                    "Fixed %d consolidated tag(s) to maintain input tag '%s' - set_id=%s, category=%s",
+                    corrected_count,
+                    expected_tag,
+                    set_id,
+                    semantic_category.name,
+                )
+
         async def _add_feature(f: LLMReducedFeature) -> None:
             value_embedding = (await resources.embedder.ingest_embed([f.value]))[0]
 
@@ -398,12 +538,23 @@ class IngestionService:
                 value=f.value,
                 embedding=np.array(value_embedding),
             )
+            logger.info(
+                "Added consolidated feature: id=%s, tag=%s, feature=%s",
+                f_id,
+                f.tag,
+                f.feature,
+            )
 
             await self._semantic_storage.add_citations(f_id, citation_ids)
 
-        await asyncio.gather(
-            *[
-                _add_feature(feature)
-                for feature in consolidate_resp.consolidated_memories
-            ],
-        )
+        if consolidate_resp.consolidated_memories:
+            logger.info(
+                "Adding %d consolidated features",
+                len(consolidate_resp.consolidated_memories),
+            )
+            await asyncio.gather(
+                *[
+                    _add_feature(feature)
+                    for feature in consolidate_resp.consolidated_memories
+                ],
+            )
