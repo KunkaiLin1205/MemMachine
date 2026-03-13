@@ -367,7 +367,75 @@ class DeclarativeMemory:
             property_filter=mangled_property_filter,
         )
 
-        # Get source episodes of matched derivatives.
+        # Early filtering: Calculate vector similarity for derivatives and filter before contextualization
+        import numpy as np
+        
+        if len(matched_derivative_nodes) == 0:
+            logger.info("No derivative nodes found matching the query")
+            return []
+        
+        # Extract derivative embeddings and calculate similarity
+        embedding_name = DeclarativeMemory._embedding_name(
+            self._embedder.model_id,
+            self._embedder.dimensions,
+        )
+        
+        derivative_embeddings = []
+        valid_derivative_nodes = []
+        
+        for node in matched_derivative_nodes:
+            if embedding_name in node.embeddings:
+                embedding, _ = node.embeddings[embedding_name]
+                derivative_embeddings.append(embedding)
+                valid_derivative_nodes.append(node)
+        
+        if len(derivative_embeddings) == 0:
+            logger.warning("No valid embeddings found in derivative nodes")
+            return []
+        
+        # Calculate cosine similarity with query
+        query_emb_np = np.array(query_embedding)
+        derivative_emb_np = np.array(derivative_embeddings)
+        
+        dot_products = np.dot(derivative_emb_np, query_emb_np)
+        query_norm = np.linalg.norm(query_emb_np)
+        derivative_norms = np.linalg.norm(derivative_emb_np, axis=1)
+        derivative_norms[derivative_norms == 0] = 1.0  # Avoid division by zero
+        
+        derivative_similarities = dot_products / (derivative_norms * query_norm)
+        
+        # Minimum cosine similarity threshold for relevance
+        # 0.3 = loosely related, 0.5 = moderately related, 0.7 = highly related
+        MIN_VECTOR_SIMILARITY = 0.4
+        
+        # Log similarity distribution
+        logger.info(
+            "Derivative similarity scores - min: %.3f, max: %.3f, mean: %.3f, count: %d",
+            float(np.min(derivative_similarities)),
+            float(np.max(derivative_similarities)),
+            float(np.mean(derivative_similarities)),
+            len(derivative_similarities),
+        )
+        
+        # Filter derivatives by similarity threshold BEFORE contextualization
+        filtered_derivative_nodes = [
+            node
+            for node, sim in zip(valid_derivative_nodes, derivative_similarities)
+            if sim >= MIN_VECTOR_SIMILARITY
+        ]
+        
+        logger.info(
+            "Early filtering: kept %d/%d derivatives with similarity >= %.2f",
+            len(filtered_derivative_nodes),
+            len(valid_derivative_nodes),
+            MIN_VECTOR_SIMILARITY,
+        )
+        
+        if len(filtered_derivative_nodes) == 0:
+            logger.info("All derivatives filtered out due to low similarity")
+            return []
+
+        # Get source episodes of filtered derivatives.
         search_derivatives_source_episode_nodes_tasks = [
             self._vector_graph_store.search_related_nodes(
                 relation=self._derived_from_relation,
@@ -378,7 +446,7 @@ class DeclarativeMemory:
                 find_targets=True,
                 node_property_filter=mangled_property_filter,
             )
-            for matched_derivative_node in matched_derivative_nodes
+            for matched_derivative_node in filtered_derivative_nodes
         ]
 
         # Use a dict instead of a set to preserve order.
@@ -396,15 +464,42 @@ class DeclarativeMemory:
             for source_episode_node in source_episode_nodes
         ]
 
-        contextualize_episode_tasks = [
-            self._contextualize_episode(
-                nuclear_episode,
-                mangled_property_filter=mangled_property_filter,
-            )
-            for nuclear_episode in nuclear_episodes
-        ]
-
-        episode_contexts = await asyncio.gather(*contextualize_episode_tasks)
+        # CONTEXTUALIZATION DISABLED when similarity filtering is active
+        #
+        # Rationale:
+        # When early similarity filtering is applied (MIN_VECTOR_SIMILARITY threshold),
+        # we only keep derivatives that are semantically relevant to the query.
+        # Contextualization adds chronologically adjacent episodes (1 before + 2 after),
+        # which are often semantically irrelevant to the query.
+        #
+        # Example problem:
+        #   Query: "hotel"
+        #   1 relevant derivative found: "user is open to 4-4.5 star hotels"
+        #   Contextualization adds:
+        #     - Episode before: "voice test call cancelled" (irrelevant)
+        #     - Episode after: "voice test task unsuccessful" (irrelevant)
+        #   Result: 1 relevant + 2 irrelevant episodes returned
+        #
+        # Solution: Return only the nuclear episodes that actually matched the query.
+        # This ensures top_k returns k *relevant* results, not k mixed results.
+        #
+        # Original contextualization code (commented out):
+        # contextualize_episode_tasks = [
+        #     self._contextualize_episode(
+        #         nuclear_episode,
+        #         mangled_property_filter=mangled_property_filter,
+        #     )
+        #     for nuclear_episode in nuclear_episodes
+        # ]
+        # episode_contexts = await asyncio.gather(*contextualize_episode_tasks)
+        
+        # Return only nuclear episodes (no context)
+        episode_contexts = [[episode] for episode in nuclear_episodes]
+        
+        logger.info(
+            "Skipping contextualization due to similarity filtering - "
+            "returning only nuclear episodes that matched the query"
+        )
 
         # Rerank episode contexts.
         episode_context_scores = await self._score_episode_contexts(
