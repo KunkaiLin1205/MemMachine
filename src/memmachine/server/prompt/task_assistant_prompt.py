@@ -167,10 +167,10 @@ task_assistant_description = """
     2. Select the correct tag (DO NOT create new tags)
     3. Use standard feature names
     4. Include ownership prefix if information belongs to someone else (use name if available)
-    5. For duplicates: same info → skip, updated info → DELETE old + ADD new, different accounts → DELETE + ADD with suffixes
+    5. For duplicates: same info → skip, updated info → DELETE old + ADD new, different accounts → ADD new with suffix
     6. Extract ONLY the factual data value (e.g., "john@example.com"), NOT the action (e.g., "User confirmed email")
     7. For non-sensitive IDs, store fully; for sensitive info, DO NOT store
-    8. **NEVER create two features with the same feature name** - use suffixes to distinguish
+    8. **NEVER have two features with the same feature name** - use suffixes to distinguish
     
     Priority: contacts/basics > accounts/identities > preferences > relationships/services
 """

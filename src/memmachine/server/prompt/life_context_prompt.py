@@ -182,7 +182,7 @@ life_context_description = """
     1. Compare with existing features to identify duplicates or updates
     2. Select the correct tag (DO NOT create new tags)
     3. Use specific, descriptive feature names (avoid vague names like "PRIMARY INTEREST")
-    4. For duplicates: same info → skip, evolution → DELETE old + ADD new, different items → DELETE + ADD with descriptive suffixes
+    4. For duplicates: same info → skip, evolution → DELETE old + ADD new, different items → ADD new with descriptive suffix
     5. Extract the characteristic itself (e.g., "exercises 3 times a week"), NOT the action (e.g., "User started exercising")
     6. Look for underlying motivations, values, and personality traits
     7. Avoid extracting sensitive PII or temporary states
