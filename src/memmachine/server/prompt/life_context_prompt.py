@@ -186,17 +186,20 @@ life_context_description = """
     5. Extract the characteristic itself (e.g., "exercises 3 times a week"), NOT the action (e.g., "User started exercising")
     6. Look for underlying motivations, values, and personality traits
     7. Avoid extracting sensitive PII or temporary states
-    8. **NEVER create two features with the same feature name** - use descriptive suffixes to distinguish
-    
-    Priority: personality/life_situation > goals > lifestyle > interests
+    8. Always Check before returning the output: 
+        a. MUST NOT add two features with the same feature name under the same tag - only keep one if they are the same, use suffixes to distinguish if they are different. For update operation, do not forget to delete the old feature.
+        b. MUST NOT add temporary information (belongs in episodic memory).
+        c. MUST NOT add sensitive Personal Identifiable Information (PII).
 """
 
 # Custom consolidation prompt for life-oriented personal context
 life_context_consolidation_prompt = """
     You are performing memory consolidation for a life-oriented personal context memory system.
     Consolidation minimizes interference between personal insights while maintaining psychological profile integrity.
-
+    
     ## INPUT/OUTPUT FORMAT
+    
+    **IMPORTANT: All input memories have the SAME tag. All outputs MUST use this SAME tag.**
 
     ### Input Memory
     ```json
@@ -208,162 +211,144 @@ life_context_consolidation_prompt = """
     {"tag": "string", "feature": "string", "value": "string", "metadata": {"citations": [list of ids]}}
     ```
 
-    ## RULES
+    ## CONSOLIDATION RULES
 
-    ### Tags
+    ### Feature Names Format
+    - UPPERCASE with SPACES (e.g., "INTEREST PHOTOGRAPHY", "CAREER GOAL")
+    - Use descriptive suffixes for multiple items: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
+    - Standard patterns: "INTEREST [NAME]", "EXERCISE HABIT", "CAREER GOAL", "COMMUNICATION STYLE"
+    - Avoid vague names: use "INTEREST PHOTOGRAPHY" not "PRIMARY INTEREST"
+
+    ### Step 1: DELETE First (Highest Priority)
     
-    - All input memories have the SAME tag. Your output memories MUST use the SAME tag as the input.
-    - DO NOT change tags during consolidation. If input tag is "interests", output tag for all consolidation memory MUST be "interests".
-    - CRITICAL: Tags MUST be lowercase (e.g., "interests" NOT "INTERESTS" or "Interests")
-
-    ### Feature Names
-    - UPPERCASE with SPACES (e.g., "PRIMARY INTEREST", "CAREER GOAL")
-    - No underscores or other special characters in feature names
-    - MUST NOT use underscores or other special characters in feature names
-    - For multiple items of same type, use descriptive suffixes: "INTEREST PHOTOGRAPHY", "INTEREST COOKING"
-    - Standard names:
-      - Interests: "INTEREST [NAME]" for specific interests (e.g., "INTEREST PHOTOGRAPHY")
-      - Lifestyle: "EXERCISE HABIT", "SLEEP PATTERN", "DIETARY HABIT"
-      - Goals: "CAREER GOAL", "HEALTH GOAL", "FINANCIAL GOAL", "LIFE VISION"
-      - Personality: "COMMUNICATION STYLE", "DECISION MAKING STYLE", "SOCIAL PREFERENCE"
-      - Life Situation: "CURRENT LIFE STAGE", "CORE VALUE", "FAMILY SITUATION"
-
-    ## CONSOLIDATION GUIDELINES
-
-    ### 0. DELETE FIRST (Highest Priority)
-
-    **Actions/Events - DELETE:**
-    - "User started X on [date]"
-    - "User decided Y"
-    - "User completed Z yesterday"
-    - Any value describing an action or event instead of a static characteristic
+    **Actions/Events - Must DELETE:**
+    - "User started X on [date]", "User decided Y", "User completed Z"
     - ASK: "Is this a static characteristic or an action?" If ACTION → DELETE
-
-    **Highly Sensitive PII - DELETE:**
-    - SSN, passport numbers, driver's license numbers
-    - Credit card/bank account numbers
-    - Passwords, PINs, credentials
-    - Medical records, financial records, legal documents
-
-    **Temporary Information - DELETE:**
-    - "CURRENT LOCATION", "USER LOCATION", "STAYING AT"
-    - Airbnb addresses, hotel rooms, current trips
+    
+    **Sensitive PII - Must DELETE:**
+    - SSN, passport numbers, driver's license, credit cards
+    - Passwords, PINs, medical records, financial records
+    
+    **Temporary Information - Must DELETE:**
+    - Current location, hotel stays, Airbnb addresses
     - Time-bound information, current projects
     - ASK: "Will this still be true in 6 months?" If NO → DELETE
-
+    
     **OK to Keep:**
     - Long-term interests, stable lifestyle patterns
-    - Personality traits, life goals
-    - Core values, stable life circumstances
-    - ONLY if the value is the actual characteristic (e.g., "exercises regularly"), NOT an action description
+    - Personality traits, life goals, core values
+    - Stable life circumstances
+    - ONLY if the value is actual characteristic (e.g., "exercises regularly"), NOT action description
 
-    ### 1. Identical or Nearly Identical Information
+    ### Step 2: Group and Consolidate
     
-    **Same tag + same feature name + same/similar value:**
-    - DELETE all duplicates, KEEP only one (the most complete version)
-    - Or DELETE all, CREATE one consolidated version
-    
-    Examples:
-    - tag="interests", feature="INTEREST PHOTOGRAPHY", value="User likes photography"
-    - tag="interests", feature="INTEREST PHOTOGRAPHY", value="User enjoys photography"
-    → DELETE both, CREATE: {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby"}
-    
-    - tag="interests", feature="INTEREST BIKING", value="User likes biking"
-    - tag="interests", feature="INTEREST BIKING", value="User likes biking."  (with period)
-    → DELETE duplicate, KEEP one or CREATE consolidated version
-    
-    **Same tag + same feature name + different value:**
-    - This usually means a mistake or evolution
-    - If evolution: DELETE old, KEEP new
-    - If conflicting: merge into one comprehensive value
+    **Same feature name + same/similar value:**
+    - Exact duplicates → DELETE duplicates, KEEP only one
+    - Similar meaning → DELETE all, CREATE one consolidated version
     
     Example:
-    - tag="goals", feature="CAREER GOAL", value="become a manager"
-    - tag="goals", feature="CAREER GOAL", value="become a senior manager"
+    - feature="INTEREST PHOTOGRAPHY", value="User likes photography" / "User enjoys photography"
+    → DELETE both, CREATE: {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby", "metadata": {"citations": ["1", "2"]}}
+    
+    **Same feature name + different value:**
+    - If evolution → DELETE old, KEEP new (most complete/current)
+    - If conflicting → merge into comprehensive value
+    
+    Example (Evolution):
+    - feature="CAREER GOAL", value="become a manager" / "become a senior manager"
     → DELETE old, KEEP: {"tag": "goals", "feature": "CAREER GOAL", "value": "become a senior manager"}
-
-    ### 2. Multiple Items of Same Type
-    Use descriptive feature names with the item name as suffix
     
-    **Note: "UPDATE" or "Rename" means DELETE old feature(s) and CREATE new feature(s) with better names.**
+    **Vague feature names → Rename with specifics:**
+    - "PRIMARY INTEREST", "SECONDARY INTEREST" → DELETE, CREATE specific names
     
-    Examples:
-    - Multiple "PRIMARY INTEREST" entries → DELETE all, CREATE "INTEREST [NAME]" for each distinct interest
-    - Input: "PRIMARY INTEREST": "photography", "SECONDARY INTEREST": "cooking"
-    - Output: DELETE both, CREATE "INTEREST PHOTOGRAPHY" and "INTEREST COOKING"
-
-    ### 3. Ownership and Relationships
-    When consolidating related interests (e.g., "dogs", "cats", "pets"):
-    - Merge into broader category if appropriate: DELETE specific ones, CREATE "INTEREST PETS" with value "User enjoys dogs and cats"
-    - OR keep separate if distinct: CREATE "INTEREST DOGS" and "INTEREST CATS"
-
-    ### 4. Evolution vs Different Items
-    - Evolution/refinement: DELETE old, KEEP most complete/current version
-    - Different items: DELETE old vague names, CREATE separate features with descriptive names
+    Example (Rename vague):
+    - feature="PRIMARY INTEREST", value="photography"
+    - feature="SECONDARY INTEREST", value="cooking"
+    → DELETE both, CREATE:
+      {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "photography", "metadata": {"citations": ["1"]}}
+      {"tag": "interests", "feature": "INTEREST COOKING", "value": "cooking", "metadata": {"citations": ["2"]}}
     
-    **Note: Any "UPDATE" operation means DELETE old + CREATE new. There is no direct UPDATE command.**
+    **Multiple items of same type:**
+    - Use descriptive suffixes with item names
+    - Don't create suffixes until you have 2+ distinct items
 
-    Example (Evolution): "CAREER GOAL": "become a manager" → "become a senior manager"
-    → DELETE old, KEEP "become a senior manager"
+    ### Step 3: Handle Related Items
+    - Related interests (e.g., "dogs", "cats") → Merge into broader OR keep separate
+    - Example: DELETE specific, CREATE "INTEREST PETS" with "enjoys dogs and cats"
+    - OR: Keep as "INTEREST DOGS", "INTEREST CATS" if distinct enough
 
-    Example (Different): Multiple hobbies
-    → DELETE vague "PRIMARY INTEREST" entries, CREATE specific "INTEREST [NAME]" for each
-
-    ### 5. Redundant Information
-    DELETE incomplete versions, KEEP complete ones
-
-    ### 6. Multiple Items
-    Use consistent, descriptive suffixes. Don't create suffixes until you have 2+ distinct items.
-
-    ## AGGRESSIVE DELETION
-
-    **REMEMBER: This is PROFILE data storage, NOT event logging.**
+    ## PROCESSING WORKFLOW
     
-    More memories = more interference = more cognitive load.
-    Be aggressive: some distinctions aren't worth maintaining. Delete ruthlessly.
+    Use your <think> section to follow these steps systematically:
     
-    DELETE any memory that describes an action or event rather than a static personal characteristic.
+    **Step 1: List all inputs**
+    Write: "Input: id=X, feature=Z, value=W" for each memory
     
-    **IMPORTANT:** Vague feature names like "PRIMARY INTEREST" and "SECONDARY INTEREST" should be replaced with specific names like "INTEREST PHOTOGRAPHY", "INTEREST COOKING".
+    **Step 2: Identify DELETE candidates**
+    List IDs to DELETE (actions, PII, temporary, vague names) with reason
+    Example: "DELETE id=3 (action: 'User started exercising')"
+    
+    **Step 3: Group remaining by feature or similarity**
+    Group memories with same/similar feature names
+    Example: "Group INTERESTS: id=1 (photography), id=2 (cooking)"
+    
+    **Step 4: Decide action per group**
+    - Same meaning → keep one or merge
+    - Evolution → keep most complete
+    - Vague names → DELETE all, CREATE with specific names
+    
+    **Step 5: Generate output**
+    - keep_memories: IDs to keep unchanged
+    - consolidated_memories: New memories with citations
 
     ## OUTPUT FORMAT
 
-    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
+    Both fields MUST be arrays. NEVER use null.
 
-    ### Output Schema
     ```
-    <think> your reasoning </think>
+    <think>
+    Step 1: List inputs...
+    Step 2: DELETE candidates...
+    Step 3: Groups...
+    Step 4: Decisions...
+    Step 5: Output...
+    </think>
     {"consolidated_memories": [...], "keep_memories": [...]}
     ```
 
-    ### Field Descriptions
+    **keep_memories**: Array of ID strings (as strings) to keep unchanged. Use [] to delete all.
+    
+    **consolidated_memories**: Array of new memories. Each must include:
+    - tag: same as input
+    - feature: UPPERCASE with SPACES, specific names
+    - value: the actual characteristic
+    - metadata.citations: array of source IDs
 
-    **keep_memories** (REQUIRED - must be an array, never null):
-    - List of metadata.id values (as strings) for memories to KEEP unchanged
-    - Use empty array [] to delete ALL input memories
-    - Example: ["123", "456"] keeps memories with those IDs
+    ### Output Examples
 
-    **consolidated_memories** (REQUIRED - must be an array, never null):
-    - List of NEW memories to create after consolidation
-    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
-    - Use empty array [] if no new memories needed
-
-    ### Examples
-
-    Keep one, delete duplicates:
+    Example 1 - Keep one, delete duplicate:
     {"consolidated_memories": [], "keep_memories": ["1"]}
 
-    Delete temporary/sensitive data (delete all):
+    Example 2 - Delete all (temporary data):
     {"consolidated_memories": [], "keep_memories": []}
 
-    Keep all unchanged (rare - only if truly distinct):
-    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
-
-    Consolidate multiple interests with better naming:
+    Example 3 - Merge similar interests:
     {"consolidated_memories": [
-        {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby"},
-        {"tag": "interests", "feature": "INTEREST BIKING", "value": "User likes biking"}
+        {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "User enjoys photography as a hobby", "metadata": {"citations": ["1", "2"]}}
     ], "keep_memories": []}
+
+    Example 4 - Rename vague features:
+    {"consolidated_memories": [
+        {"tag": "interests", "feature": "INTEREST PHOTOGRAPHY", "value": "photography", "metadata": {"citations": ["1"]}},
+        {"tag": "interests", "feature": "INTEREST COOKING", "value": "cooking", "metadata": {"citations": ["2"]}}
+    ], "keep_memories": []}
+    
+    ## REMEMBER
+    
+    - Be aggressive with deletion: More memories = more interference
+    - Profile data storage, NOT event logging
+    - Replace vague names ("PRIMARY INTEREST") with specific names ("INTEREST PHOTOGRAPHY")
+    - Delete ruthlessly when in doubt
 """
 
 LifeContextSemanticCategory = SemanticCategory(

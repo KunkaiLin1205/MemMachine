@@ -65,10 +65,6 @@ task_assistant_description = """
     - "My employee ID is E12345" → feature="EMPLOYEE ID", value="E12345" ✓
     - "I prefer email for communication" → feature="PREFERRED CONTACT METHOD", value="email" ✓
     
-    Key Questions:
-    1. "Is this a static data value (name, email, ID, preference)?" If YES → extract. If NO → skip.
-    2. "Does this describe an action or event?" If YES → skip (episodic memory handles this).
-    
     ## WHAT NOT TO EXTRACT
     
     ### Temporary/Transient Information (belongs in episodic memory)
@@ -169,18 +165,21 @@ task_assistant_description = """
     4. Include ownership prefix if information belongs to someone else (use name if available)
     5. For duplicates: same info → skip, updated info → DELETE old + ADD new, different accounts → ADD new with suffix
     6. Extract ONLY the factual data value (e.g., "john@example.com"), NOT the action (e.g., "User confirmed email")
-    7. For non-sensitive IDs, store fully; for sensitive info, DO NOT store
-    8. **NEVER have two features with the same feature name** - use suffixes to distinguish
-    
-    Priority: contacts/basics > accounts/identities > preferences > relationships/services
+    7. For non-sensitive IDs, store; for sensitive info, DO NOT store
+    8. Always Check before returning the output: 
+        a. MUST NOT add two features with the same feature name under the same tag - only keep one if they are the same, use suffixes to distinguish if they are different. For update operation, do not forget to delete the old feature.
+        b. MUST NOT add temporary information (belongs in episodic memory).
+        c. MUST NOT add sensitive Personal Identifiable Information (PII).
 """
 
 # Custom consolidation prompt for task-oriented structured facts
 task_assistant_consolidation_prompt = """
     You are performing memory consolidation for a task-oriented structured facts memory system.
     Consolidation minimizes interference between structured facts while maintaining data integrity.
-
+    
     ## INPUT/OUTPUT FORMAT
+    
+    **IMPORTANT: All input memories have the SAME tag. All outputs MUST use this SAME tag.**
 
     ### Input Memory
     ```json
@@ -192,135 +191,141 @@ task_assistant_consolidation_prompt = """
     {"tag": "string", "feature": "string", "value": "string", "metadata": {"citations": [list of ids]}}
     ```
 
-    ## RULES
+    ## CONSOLIDATION RULES
 
-    ### Tags
-
-    - All input memories have the SAME tag. Your output memories MUST use the SAME tag as the input.
-    - DO NOT change tags during consolidation. If input tag is "accounts", output tag for all consolidation memory MUST be "accounts".   
-    - CRITICAL: Tags MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts")
-
-    ### Feature Names
-
+    ### Feature Names Format
     - UPPERCASE with SPACES (e.g., "PHONE NUMBER", "EMAIL")
-    - No underscores or other special characters in feature names
     - Use suffixes for multiple accounts: "EMAIL WORK", "EMAIL PERSONAL"
-    - For ownership: use name if available ("ALICE PHONE NUMBER"), otherwise relationship ("SPOUSE EMAIL")
+    - For ownership: prefer name over relationship ("ALICE PHONE NUMBER" > "SPOUSE EMAIL")
 
-    ## CONSOLIDATION GUIDELINES
-
-    ### 0. DELETE FIRST (Highest Priority)
-
-    **Actions/Events - DELETE:**
-    - "User confirmed X on [date]"
-    - "User verified Y today"
-    - "User updated Z"
-    - Any value describing an action or event instead of static data
+    ### Step 1: DELETE First (Highest Priority)
+    
+    **Actions/Events - Must DELETE:**
+    - "User confirmed X on [date]", "User verified Y", "User updated Z"
     - ASK: "Is this a static data value or an action?" If ACTION → DELETE
-
-    **Highly Sensitive PII - DELETE:**
-    - SSN, passport numbers, driver's license numbers
-    - Credit card/bank account numbers, routing numbers
-    - Passwords, PINs, security questions, credentials
-    - Medical records, financial records, legal documents
-    - Complete addresses with unit/apartment numbers
-
-    **Temporary Information - DELETE:**
-    - "USER LOCATION", "CURRENT ADDRESS", "STAYING AT"
-    - Airbnb addresses, hotel rooms, vacation rentals
+    
+    **Sensitive PII - Must DELETE:**
+    - SSN, passport numbers, driver's license, credit cards, bank accounts
+    - Passwords, PINs, medical records, financial records
+    
+    **Temporary Information - Must DELETE:**
+    - Current location, Airbnb/hotel addresses, vacation rentals
     - Travel itineraries, time-bound information
     - ASK: "Will this still be true in 6 months?" If NO → DELETE
-
+    
     **OK to Keep:**
-    - Names, emails, phone numbers, general addresses (no unit)
-    - Employee ID, student ID, member ID, customer ID
-    - Birthdate, occupation, preferences
-    - ONLY if the value is the actual data (e.g., "john@example.com"), NOT an action description
+    - Contact info: names, emails, phones, general addresses (no unit numbers)
+    - Non-sensitive IDs: employee ID, student ID, member ID, customer ID
+    - Long-term preferences, birthdate, occupation
+    - ONLY if the value is actual data (e.g., "john@example.com"), NOT action description
 
-    ### 1. Identical or Nearly Identical Information
+    ### Step 2: Group and Consolidate
     
-    **Same tag + same feature name + same/similar value:**
-    - DELETE all duplicates, KEEP only one (the most complete version)
-    - Or DELETE all, CREATE one consolidated version
+    **Same feature name + same/similar value:**
+    - Exact duplicates → DELETE duplicates, KEEP only one
+    - Nearly identical → DELETE all, CREATE one consolidated version
     
-    Examples:
-    - tag="contacts", feature="EMAIL", value="user@example.com"
-    - tag="contacts", feature="EMAIL", value="user@example.com"
-    → DELETE duplicate, KEEP one
+    Example:
+    - feature="EMAIL", value="user@example.com" (appears twice)
+    → DELETE duplicate, KEEP: {"tag": "contacts", "feature": "EMAIL", "value": "user@example.com"}
     
-    - tag="basics", feature="FULL NAME", value="John Smith"
-    - tag="basics", feature="FULL NAME", value="John D. Smith"
-    → DELETE incomplete, KEEP: {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith"}
+    - feature="FULL NAME", value="John Smith" / "John D. Smith"
+    → DELETE both, CREATE: {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith", "metadata": {"citations": ["1", "2"]}}
     
-    **Same tag + same feature name + different value:**
-    - This usually means different accounts or evolution
-    - If different accounts: "UPDATE" = DELETE both old + CREATE new with suffixes
-    - If evolution: DELETE old, KEEP new
+    **Same feature name + different value:**
+    - If different accounts → DELETE old, CREATE new with suffixes
+    - If evolution → DELETE old, KEEP new (most complete/current)
     
-    Examples:
-    - tag="contacts", feature="EMAIL", value="personal@email.com"
-    - tag="contacts", feature="EMAIL", value="work@company.com"
-    → DELETE both, CREATE: {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com"}
-                          {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com"}
+    Example (Different accounts):
+    - feature="EMAIL", value="personal@email.com" / "work@company.com"
+    → DELETE both, CREATE:
+      {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com", "metadata": {"citations": ["1"]}}
+      {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com", "metadata": {"citations": ["2"]}}
+    
+    Example (Evolution):
+    - feature="PHONE NUMBER", value="555-1234" (old) / "555-5678" (new)
+    → DELETE old, KEEP: {"tag": "contacts", "feature": "PHONE NUMBER", "value": "555-5678"}
+    
+    **Multiple Accounts:**
+    - Don't create suffixes until you have 2+ distinct accounts
+    - Use consistent suffixes: WORK, PERSONAL, HOME
 
-    ### 2. Different Accounts
-    "UPDATE" feature names with suffixes = DELETE old + CREATE new with suffixes (e.g., "EMAIL WORK", "EMAIL PERSONAL")
+    ### Step 3: Apply Ownership Rules
+    - Prefer name-based over relationship-based
+    - "ALICE PHONE NUMBER" > "FRIEND PHONE NUMBER"
+    - "DR SMITH EMAIL" > "DOCTOR EMAIL"
+
+    ## PROCESSING WORKFLOW
     
-    **Note: "UPDATE" means DELETE the old feature(s) and CREATE new feature(s) with better names.**
-
-    ### 3. Ownership
-    Prefer name-based over relationship-based ("ALICE PHONE NUMBER" > "FRIEND PHONE NUMBER")
-
-    ### 4. Redundant Information
-    DELETE incomplete versions, KEEP complete ones
-
-    ### 5. Multiple Accounts
-    Use consistent suffixes. Don't create suffixes until you have 2+ distinct accounts.
-
-    ## AGGRESSIVE DELETION
-
-    **REMEMBER: This is PROFILE data storage, NOT event logging.**
+    Use your <think> section to follow these steps systematically:
     
-    More memories = more interference = more cognitive load.
-    Be aggressive: some distinctions aren't worth maintaining. Delete ruthlessly.
+    **Step 1: List all inputs**
+    Write: "Input: id=X, feature=Z, value=W" for each memory
     
-    DELETE any memory that describes an action, event, or confirmation rather than a static data value.
+    **Step 2: Identify DELETE candidates**
+    List IDs to DELETE (actions, sensitive PII, temporary info) with reason
+    Example: "DELETE id=3 (action: 'User confirmed email')"
+    
+    **Step 3: Group remaining by feature name**
+    Group memories with same feature name
+    Example: "Group EMAIL: id=1 (personal@email.com), id=2 (work@company.com)"
+    
+    **Step 4: Decide action per group**
+    - Same values → keep one or merge
+    - Different values → check if accounts or evolution
+    - Apply feature name rules (suffixes, ownership)
+    
+    **Step 5: Generate output**
+    - keep_memories: IDs to keep unchanged
+    - consolidated_memories: New memories with citations
 
     ## OUTPUT FORMAT
 
-    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
+    Both fields MUST be arrays. NEVER use null.
 
-    ### Output Schema
     ```
-    <think> your reasoning </think>
+    <think>
+    Step 1: List inputs...
+    Step 2: DELETE candidates...
+    Step 3: Groups...
+    Step 4: Decisions...
+    Step 5: Output...
+    </think>
     {"consolidated_memories": [...], "keep_memories": [...]}
     ```
 
-    ### Field Descriptions
+    **keep_memories**: Array of ID strings (as strings) to keep unchanged. Use [] to delete all.
+    
+    **consolidated_memories**: Array of new memories. Each must include:
+    - tag: same as input
+    - feature: UPPERCASE with SPACES
+    - value: the actual data
+    - metadata.citations: array of source IDs
 
-    **keep_memories** (REQUIRED - must be an array, never null):
-    - List of metadata.id values (as strings) for memories to KEEP unchanged
-    - Use empty array [] to delete ALL input memories
-    - Example: ["123", "456"] keeps memories with those IDs
+    ### Output Examples
 
-    **consolidated_memories** (REQUIRED - must be an array, never null):
-    - List of NEW memories to create after consolidation
-    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
-    - Use empty array [] if no new memories needed
-
-    ### Examples
-
-    Keep one, delete duplicates:
+    Example 1 - Keep one, delete duplicate:
     {"consolidated_memories": [], "keep_memories": ["1"]}
 
-    Delete sensitive data (delete all):
+    Example 2 - Delete all (sensitive data):
     {"consolidated_memories": [], "keep_memories": []}
 
-    Keep all unchanged:
-    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
+    Example 3 - Merge similar values:
+    {"consolidated_memories": [
+        {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith", "metadata": {"citations": ["1", "2"]}}
+    ], "keep_memories": []}
 
-    Merge into new memory:
-    {"consolidated_memories": [{"tag": "contacts", "feature": "EMAIL PRIMARY", "value": "user@example.com"}], "keep_memories": []}
+    Example 4 - Rename for multiple accounts:
+    {"consolidated_memories": [
+        {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com", "metadata": {"citations": ["1"]}},
+        {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com", "metadata": {"citations": ["2"]}}
+    ], "keep_memories": []}
+    
+    ## REMEMBER
+    
+    - Be aggressive with deletion: More memories = more interference
+    - Profile data storage, NOT event logging
+    - Delete ruthlessly when in doubt
 """
 
 TaskAssistantSemanticCategory = SemanticCategory(
