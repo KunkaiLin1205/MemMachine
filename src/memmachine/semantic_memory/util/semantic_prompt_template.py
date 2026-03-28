@@ -27,13 +27,14 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         To update the profile, you will output a JSON document containing a list of commands to be executed in sequence.
 
         CRITICAL: You MUST use the command format below. Do NOT create nested objects or use any other format.
+        CRITICAL: Tag names MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts"). Tags are case-sensitive.
 
         The following output will add a feature:
         {
             "0": {
                 "command": "add",
-                "tag": "Preferred Content Format",
-                "feature": "unicode_for_math",
+                "tag": "preferences",
+                "feature": "UNICODE FOR MATH",
                 "value": true
             }
         }
@@ -41,22 +42,22 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         {
             "0": {
                 "command": "delete",
-                "tag" : "Language Preferences",
-                "feature: "format"
+                "tag": "preferences",
+                "feature": "FORMAT"
             }
         }
         The following will update a feature:
         {
             "0": {
                 "command": "delete",
-                "tag": "Platform Behavior",
-                "feature": "prefers_detailed_responses",
+                "tag": "preferences",
+                "feature": "PREFERS DETAILED RESPONSES",
                 "value": true
             },
             "1": {
                 "command": "add",
-                "tag" : "Platform Behavior",
-                "feature": "prefers_detailed_response",
+                "tag": "preferences",
+                "feature": "PREFERS DETAILED RESPONSE",
                 "value": false
             }
         }
@@ -66,8 +67,8 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         {
             "0": {
                 "command": "add",
-                "tag": "Demographic Information",
-                "feature": "name",
+                "tag": "basics",
+                "feature": "NAME",
                 "value": "Katara"
             }
         }
@@ -75,14 +76,14 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         {
             "0": {
                 "command": "add",
-                "tag": "Hobbies & Interests",
-                "feature": "home_cook",
+                "tag": "preferences",
+                "feature": "HOME COOK",
                 "value": "User cooks fancy food"
             },
             "1":{
                 "command": "add",
-                "tag": "Financial Profile",
-                "feature": "upper_class",
+                "tag": "preferences",
+                "feature": "UPPER CLASS",
                 "value": "User entertains guests at dinner parties, suggesting affluence."
             }
         }
@@ -90,48 +91,27 @@ def build_update_prompt(*, tags: dict[str, str], description: str = "") -> str:
         {
             "0": {
                 "command": "add",
-                "tag": "Psychological Profile",
-                "feature": "work_superior_frustration",
+                "tag": "others",
+                "feature": "WORK SUPERIOR FRUSTRATION",
                 "value": "User is frustrated with their boss for perceived incompetence"
             },
             "1": {
                 "command": "add",
-                "tag": "Demographic Information",
-                "feature": "summer_job",
+                "tag": "basics",
+                "feature": "SUMMER JOB",
                 "value": "User is working a temporary job for the summer"
             },
             "2": {
                 "command": "add",
-                "tag": "Communication Style",
-                "feature": "informal_speech",
+                "tag": "preferences",
+                "feature": "INFORMAL SPEECH",
                 "value": "User speaks with all lower case letters and contemporary slang terms."
             },
             "3": {
                 "command": "add",
-                "tag": "Demographic Information",
-                "feature": "young_adult",
+                "tag": "basics",
+                "feature": "YOUNG ADULT",
                 "value": "User is young, possibly still in college"
-            }
-        }
-        Query: Can you go through my inbox and flag any urgent emails from clients, then update the project status spreadsheet with the latest deliverable dates from those emails? Also send a quick message to my manager letting her know I'll have the budget report ready by end of day tomorrow.
-        {
-            "0": {
-                "command": "add",
-                "tag": "Demographic Information",
-                "feature": "traditional_office_job",
-                "value": "User does clerical work, reporting to a manager"
-            },
-            "1": {
-                "command": "add",
-                "tag": "Demographic Information",
-                "feature": "client_facing_role",
-                "value": "User handles communication of deadlines to and from clients"
-            },
-            "2": {
-                "command": "add",
-                "tag": "Demographic Information",
-                "feature": "autonomy_at_work",
-                "value": "User sets their own deadlines and subtasks."
             }
         }
         Further Guidelines:
@@ -200,17 +180,44 @@ def build_consolidation_prompt() -> str:
 
     Do not create new tag names.
 
+    ## OUTPUT FORMAT
 
-    The proper noop syntax is:
-    {
-        "consolidate_memories": []
-        "keep_memories": []
-    }
+    CRITICAL: Both fields MUST be arrays. NEVER use null/None for any field.
 
-    The final output schema is:
+    ### Output Schema
+    ```
     <think> insert your chain of thought here. </think>
     {
-        "consolidate_memories": list of new memories to add
-        "keep_memories": list of ids of old memories to keep
+        "consolidated_memories": [...],
+        "keep_memories": [...]
     }
+    ```
+
+    ### Field Descriptions
+
+    **keep_memories** (REQUIRED - must be an array, never null):
+    - List of metadata.id values (as strings) for memories to KEEP unchanged
+    - Use empty array [] to delete ALL input memories
+    - Example: ["123", "456"] keeps memories with those IDs
+    - Example: [] deletes all input memories
+
+    **consolidated_memories** (REQUIRED - must be an array, never null):
+    - List of NEW memories to create after consolidation
+    - Each memory has: {"tag": "...", "feature": "...", "value": "..."}
+    - Use empty array [] if no new memories needed
+    - Example: [{"tag": "interests", "feature": "HOBBY", "value": "photography"}]
+
+    ### Examples
+
+    No changes needed (keep all, add nothing):
+    {"consolidated_memories": [], "keep_memories": ["1", "2", "3"]}
+
+    Delete duplicates (keep one):
+    {"consolidated_memories": [], "keep_memories": ["1"]}
+
+    Merge and replace (delete all, create new):
+    {"consolidated_memories": [{"tag": "interests", "feature": "HOBBIES", "value": "photography, cooking"}], "keep_memories": []}
+
+    Delete all (no replacements):
+    {"consolidated_memories": [], "keep_memories": []}
     """

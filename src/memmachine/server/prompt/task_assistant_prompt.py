@@ -15,23 +15,14 @@ from memmachine.semantic_memory.util.semantic_prompt_template import (
 
 # Task-oriented structured facts tags
 task_assistant_tags: dict[str, str] = {
-    # === Core Identity & Contact ===
-    "basics": "Basic personal information: full name, date of birth, gender, age, marital status, education level, occupation, and other basic demographic information. IMPORTANT: If information belongs to someone other than the user (e.g., spouse's name, child's date of birth), include ownership in the feature name (e.g., 'SPOUSE FULL NAME', 'CHILD DATE OF BIRTH').",
-    "contacts": "Contact information and addresses: phone numbers, email addresses, permanent addresses, mailing addresses, work addresses, emergency contacts. IMPORTANT: Always include ownership/relationship in feature names when the contact belongs to someone other than the user (e.g., 'SPOUSE EMAIL', 'CHILD PHONE NUMBER', 'EMERGENCY CONTACT PHONE'). For the user's own contacts, use standard names like 'EMAIL', 'PHONE NUMBER'.",
-    "identities": "Stable identification numbers and documents: social security numbers (last 4 digits), driver's license numbers, passport numbers, tax IDs, employee IDs, student IDs, insurance member IDs.",
-    
-    # === Financial & Accounts ===
-    "accounts": "Account information: account numbers, account holder names, account types, bank account details, credit card information (last 4 digits, card type), subscription account IDs, service account numbers, membership numbers, customer IDs, loyalty program numbers.",
-    
-    # === Preferences & Settings ===
-    "preferences": "User preferences: preferred contact methods (phone, email, text), communication style preferences, service preferences (appointment times, service providers), payment methods, dietary preferences, accessibility needs, language preferences, notification preferences, time zone, preferred meeting formats.",
-    
-    # === Relationships & Network ===
-    "relationships": "Personal relationships and family contacts: family members (spouse, children, parents, siblings), close friends, business contacts, authorized representatives, people the user frequently interacts with or makes decisions on behalf of. Include relationship context and relevant contact information or identifiers. IMPORTANT: When storing contact information, ALWAYS use the person's name if available (e.g., 'SARAH EMAIL', 'ALICE PHONE NUMBER'). Only use relationship type (e.g., 'SPOUSE EMAIL', 'FRIEND PHONE NUMBER') if the name is unknown.",
-    "services": "Service providers and professional contacts: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, therapist, personal trainer, and other professional service providers. Include contact information, specialties, and relevant details. IMPORTANT: ALWAYS use the provider's name if available (e.g., 'DR SMITH PHONE', 'JOHN LAWYER EMAIL'). Only use service type (e.g., 'DOCTOR PHONE', 'LAWYER EMAIL') if the name is unknown.",
-    
-    # === Other Information ===
-    "others": "Other structured facts that don't fit into the above categories but are still stable, reusable information needed for task completion. Use this tag only when the information clearly doesn't belong to any of the other defined tags (basics, contacts, identities, accounts, preferences, relationships, services).",
+    "basics": "Basic personal information about the user: full name, date of birth, gender, age, marital status, education level, occupation, and other demographic information.",
+    "contacts": "Permanent contact information: phone numbers, email addresses, home address, work address, mailing address, and emergency contacts.",
+    "identities": "Personal identification documents and IDs: employee ID, student ID, insurance member ID, professional license numbers, and other non-government issued identifiers.",
+    "accounts": "Service accounts and memberships: customer IDs, subscription IDs, membership numbers, loyalty program numbers, utility account numbers, and library card numbers.",
+    "preferences": "Long-term user preferences: preferred contact methods, communication style preferences, dietary preferences, accessibility needs, language preferences, timezone, and notification settings.",
+    "relationships": "Personal relationships and family: family members (spouse, children, parents), close friends, business contacts, and authorized representatives with their contact information.",
+    "services": "Service providers and professionals: doctor, lawyer, accountant, dentist, insurance agent, financial advisor, and other professional contacts with their specialties and contact information.",
+    "others": "Other stable structured facts that don't fit the above categories but are still permanent, reusable information needed for task completion.",
 }
 
 # Optimized description for task-oriented structured facts
@@ -39,243 +30,302 @@ task_assistant_description = """
     You are extracting structured, factual user information from conversations with a task-oriented assistant.
     This information is used to efficiently complete user requests and is typically referenced at the start of sessions.
     
-    YOUR ROLE AND CONTEXT
+    ## YOUR ROLE
     
-    Your Job:
     - Extract structured facts that help the agent quickly access information needed for task completion
     - Store contact information, account details, identities, preferences, relationships, and service providers
     - Enable the agent to complete tasks efficiently without asking for repeated information
     
-    Important Context:
-    - Episodic memories already contain refined descriptions and atomic claims, including all historical events and temporary states
-    - Semantic memory is for STABLE, REUSABLE user information that persists across sessions
-    - ALWAYS compare with existing features before creating new ones
+    Important: Semantic memory is for STABLE, REUSABLE information that persists across sessions.
+    ALWAYS compare with existing features before creating new ones.
     
-    CRITICAL TAG RULES:
-    - You MUST ONLY use the tags defined in the tags list: basics, contacts, identities, accounts, preferences, relationships, services, others
-    - DO NOT create new tags - if information doesn't fit perfectly, choose the closest matching tag
-    - Financial-related information should use "accounts" (for account details) or "preferences" (for financial preferences)
-    - Use "others" tag only when the information clearly doesn't belong to any of the other defined tags
+    ## TAG RULES
     
-    WHAT TO EXTRACT
+    You MUST ONLY use: basics, contacts, identities, accounts, preferences, relationships, services, others
+    - DO NOT create new tags - choose the closest matching tag
+    - Use "others" only when information clearly doesn't belong elsewhere
+    - CRITICAL: Tags are case-sensitive and MUST be lowercase (e.g., "accounts" NOT "ACCOUNTS" or "Accounts")
     
-    Extract These Stable Structured Facts:
-    - Permanent contact information (phone, email, addresses)
-    - Stable account information (account numbers, IDs - last 4 digits only)
-    - Long-term preferences (communication methods, service preferences, payment methods)
-    - Relationship information that remains stable (family members, close contacts)
-    - Service provider relationships with contact information
+    ## WHAT TO EXTRACT
     
-    Do NOT Extract (These belong in episodic memory):
-    - Historical events or past actions (e.g., "booked a flight on 2026-01-23")
-    - Temporary states or pending actions (e.g., "flight_booking_pending")
-    - One-time transactions or specific occurrences (e.g., "made a purchase")
-    - Time-specific information that will become outdated (e.g., "currently traveling")
-    - Travel history, booking history, transaction history, or any event-based information
-    - Temporary preferences or context-dependent choices (e.g., "wants pizza today" vs. stable "prefers Italian food")
+    **ONLY extract STATIC, FACTUAL DATA VALUES - NOT actions or events.**
     
-    FEATURE NAMING RULES
+    Stable, long-term information:
+    - Permanent contact info: phone numbers, email addresses, home/work addresses
+    - Personal IDs: employee ID, student ID, insurance member ID, professional licenses
+    - Service accounts: customer IDs, subscription IDs, membership numbers, loyalty programs
+    - Long-term preferences: communication methods, dietary needs, accessibility, timezone
+    - Relationships: family members, close friends, business contacts with their info
+    - Service providers: doctor, lawyer, accountant with their contact details
     
-    Format Rules:
-    - Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
+    **CRITICAL: Extract ONLY the data value itself, NOT the action or event.**
+    
+    Examples of CORRECT extraction:
+    - "My email is john@example.com" → feature="EMAIL", value="john@example.com" ✓
+    - "My employee ID is E12345" → feature="EMPLOYEE ID", value="E12345" ✓
+    - "I prefer email for communication" → feature="PREFERRED CONTACT METHOD", value="email" ✓
+    
+    ## WHAT NOT TO EXTRACT
+    
+    ### Temporary/Transient Information (belongs in episodic memory)
+    - Current location, travel status, temporary residence (hotels, Airbnbs)
+    - Historical events, past actions, one-time transactions
+    - Pending states, appointments, scheduled events
+    - Context-dependent choices (e.g., "wants pizza today" vs stable "prefers Italian food")
+    - Actions or events: "User confirmed X", "User updated Y", "User verified Z"
+    - Timestamps of actions: "confirmed on March 12", "updated at 3pm"
+    
+    Examples of INCORRECT extraction (DO NOT DO THIS):
+    - "User confirmed email on March 12" → DO NOT EXTRACT (this is an action/event)
+    - "User updated phone number" → DO NOT EXTRACT (this is an action/event)
+    - "User verified address today" → DO NOT EXTRACT (this is an action/event)
+    
+    ### Highly Sensitive PII (never store for security)
+    - Government IDs: SSN, passport numbers, driver's license numbers
+    - Financial: credit card numbers, bank account numbers, routing numbers
+    - Security: passwords, PINs, security questions, authentication credentials
+    - Private records: medical records, financial records, legal documents
+    - Biometric data, complete addresses with unit/apartment numbers
+    
+    Examples:
+    - "My SSN is 123-45-6789" → DO NOT EXTRACT (sensitive)
+    - "Staying at Airbnb at 123 Main St" → DO NOT EXTRACT (temporary)
+    - "I live at 123 Main St, Apt 4B" → Extract "123 Main St" as HOME ADDRESS (no unit)
+    - "User confirmed email on March 12" → DO NOT EXTRACT (action/event)
+    - "User verified phone number today" → DO NOT EXTRACT (action/event)
+    
+    ## FEATURE NAMING RULES
+    
+    ### Format
+    - MUST Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
+    - MUST NOT use underscores or other special characters in feature names
     - Use full words, not abbreviations
     - Be specific and descriptive
     
-    Standard Feature Names (User's Own Information):
-    - "FULL NAME" (not "NAME", "USER NAME", "USERNAME")
-    - "EMAIL" (not "EMAIL ADDRESS", "CONTACT EMAIL", "E-MAIL")
-    - "PHONE NUMBER" (not "PHONE", "MOBILE", "TELEPHONE")
-    - "BANK ACCOUNT LAST4" (not "ACCOUNT", "BANK", "ACCOUNT NUMBER")
-    - "CREDIT CARD LAST4" (not "CARD", "CARD NUMBER")
-    - "PREFERRED PAYMENT METHOD" (not "PAYMENT", "PREFERENCE")
-    - "TIMEZONE" (not "TZ", "TIME ZONE")
-    - "DATE OF BIRTH" (not "DOB", "BIRTHDATE", "BIRTH DATE")
-    - "HOME ADDRESS" (not "ADDRESS", "HOME", "RESIDENCE")
+    ### Standard Feature Names
+    - "FULL NAME", "EMAIL", "PHONE NUMBER", "DATE OF BIRTH", "HOME ADDRESS", "TIMEZONE"
+    - "EMPLOYEE ID", "STUDENT ID", "MEMBER ID" (non-sensitive IDs - store fully)
+    - "PREFERRED PAYMENT METHOD"
     
-    Multiple Accounts of the Same Type:
-    - If the user has multiple accounts of the same type, use SUFFIXES to distinguish them
-    - Examples:
-      * Multiple emails: "EMAIL WORK", "EMAIL PERSONAL" (or "EMAIL WORKING", "EMAIL PRIVATE")
-      * Multiple phones: "PHONE NUMBER WORK", "PHONE NUMBER PERSONAL", "MOBILE PHONE", "HOME PHONE"
-      * Multiple bank accounts: "BANK ACCOUNT LAST4 CHECKING", "BANK ACCOUNT LAST4 SAVINGS"
-      * Multiple credit cards: "CREDIT CARD LAST4 VISA", "CREDIT CARD LAST4 AMEX"
-      * Multiple addresses: "HOME ADDRESS", "WORK ADDRESS", "MAILING ADDRESS"
+    ### Multiple Accounts
+    Use SUFFIXES to distinguish:
+    - Emails: "EMAIL WORK", "EMAIL PERSONAL"
+    - Phones: "PHONE NUMBER WORK", "PHONE NUMBER PERSONAL"
+    - Addresses: "HOME ADDRESS", "WORK ADDRESS", "MAILING ADDRESS"
     
-    Feature Names with Ownership (Information Belonging to Others):
+    ### Ownership (Information Belonging to Others)
     Format: "[OWNER] [INFORMATION TYPE]"
     
-    Priority Rule: ALWAYS use the person's name if available, instead of relationship type.
-    - If name is known: Use "[NAME] [INFORMATION TYPE]" (e.g., "ALICE PHONE NUMBER", "SARAH EMAIL")
-    - If name is unknown: Use relationship type as fallback (e.g., "FRIEND PHONE NUMBER", "COLLEAGUE EMAIL")
+    Priority: ALWAYS use person's name if available, otherwise use relationship type.
+    - Name known: "ALICE PHONE NUMBER", "SARAH EMAIL", "DR SMITH PHONE"
+    - Name unknown: "SPOUSE EMAIL", "CHILD PHONE NUMBER", "DOCTOR PHONE"
     
-    Examples by Category:
-    - Family: "SARAH EMAIL" (spouse, name known) OR "SPOUSE EMAIL" (name unknown)
-    - Children: "JOHN PHONE NUMBER" (name known) OR "CHILD PHONE NUMBER" (name unknown)
-      * Multiple children: "JOHN PHONE NUMBER", "MARY PHONE NUMBER" (names known) OR "CHILD 1 PHONE NUMBER", "CHILD 2 PHONE NUMBER" (names unknown)
-    - Parents: "MOTHER SARAH PHONE" (name known) OR "MOTHER PHONE NUMBER" (name unknown)
-    - Siblings: "ALICE PHONE NUMBER" (name known) OR "SIBLING PHONE NUMBER" (name unknown)
-    - Emergency contacts: "ALICE PHONE NUMBER" (name known) OR "EMERGENCY CONTACT PHONE NUMBER" (name unknown)
-    - Friends: "ALICE PHONE NUMBER" (name known) OR "FRIEND PHONE NUMBER" (name unknown)
-    - Service providers: "DR SMITH PHONE" (name known) OR "DOCTOR PHONE" (name unknown)
-    - Work contacts: "JOHN MANAGER EMAIL" (name known) OR "MANAGER EMAIL" (name unknown)
+    ## HANDLING DUPLICATES AND UPDATES
     
-    HANDLING DUPLICATES AND UPDATES
+    Before adding new features:
+    1. Compare with existing features to check for duplicates
+    2. Analyze claims to determine if it's the same or different information
     
-    Before Adding or Updating a Feature:
-    1. ALWAYS compare with existing features to check for duplicates or updates
-    2. Analyze the claims (content) to determine if it's the same information or different
+    ### Decision Rules
+    - SAME information (same value/meaning): Do NOT add duplicate - skip it
+    - UPDATED information (same feature, new value): DELETE old, ADD new
+    - DIFFERENT information (different account/value): ADD new with different suffix
     
-    Decision Rules Based on Claims:
-    - If the claim represents the SAME information (same value, same meaning): OVERWRITE the existing feature using UPDATE command
-      * Example: Existing "EMAIL" with value "user@example.com", new claim mentions "email address user@example.com" → UPDATE "EMAIL"
-    - If the claim represents DIFFERENT information (different value, different account): Create a new feature with a different suffix
-      * Example: Existing "EMAIL" with value "user@example.com", new claim mentions "work email user@work.com" → UPDATE "EMAIL" to "EMAIL PERSONAL" and ADD "EMAIL WORK" with value "user@work.com"
+    ### Examples
     
-    Handling Multiple Accounts of the Same Type:
-    - If existing features already have suffixes (e.g., "EMAIL WORK"), and new information is about a different account, create a new feature with a different suffix (e.g., "EMAIL PERSONAL")
-    - If existing feature has no suffix (e.g., "EMAIL") and new information is about a different account of the same type:
-      * Determine which is which based on claims (e.g., "work email" vs "personal email")
-      * UPDATE the existing one to add appropriate suffix (e.g., "EMAIL PERSONAL")
-      * ADD the new one with different suffix (e.g., "EMAIL WORK")
+    **Example 1: Exact Duplicate (Skip)**
+    - Existing: feature="EMAIL", value="user@example.com"
+    - New claim: "My email is user@example.com"
+    → Skip (exact duplicate)
     
-    Reusing Feature Names:
-    - If an existing feature name means the same thing, USE THAT EXACT NAME
-    - Do not create synonyms or variations
-    - Compare with existing features first - reuse existing feature names when the information matches
-    - For multiple accounts: Check if a suffix already exists, and use consistent suffix naming
+    **Example 2: Same Feature, Updated Value (DELETE + ADD)**
+    - Existing: feature="PHONE NUMBER", value="555-1234"
+    - New claim: "My phone number changed to 555-5678"
+    → DELETE "PHONE NUMBER" (old), ADD "PHONE NUMBER" with value="555-5678"
     
-    EXTRACTION PROCESS
+    **Example 3: Multiple Accounts (ADD new with suffix)**
+    - Existing: feature="EMAIL", value="user@example.com"
+    - New claim: "My work email is user@work.com"
+    → ADD "EMAIL WORK" (user@work.com)
     
-    Step-by-Step Process:
+    **Example 4: Discovering Multiple Accounts (ADD new with suffixes)**
+    - Existing: feature="PHONE NUMBER", value="555-1234"
+    - New claim: "That's my home number. My work number is 555-5678"
+    → ADD "PHONE NUMBER WORK" (555-5678)
+    
+    **REMEMBER: NEVER have two features with the SAME feature name. Update (Delete old + Add new) or Use suffixes to distinguish them.**
+    
+    ## EXTRACTION PROCESS
+    
+    **REMEMBER: Extract ONLY static data values, NEVER actions or events.**
+    
     1. Compare with existing features to identify duplicates or updates
-    2. Analyze claims (content) to determine if information is the same or different
-    3. **CRITICAL: Select the correct tag from the defined list (basics, contacts, identities, accounts, preferences, relationships, services, others) - DO NOT create new tags**
-    4. Use standard feature names (see FEATURE NAMING RULES above)
-    5. Include ownership prefix if information belongs to someone else
-    6. **CRITICAL: For ownership, ALWAYS use the person's name if available (e.g., "ALICE PHONE NUMBER") instead of relationship type (e.g., "FRIEND PHONE NUMBER"). Only use relationship type if the name is unknown.**
-    7. **CRITICAL: For duplicate feature names, decide based on claims: if same information → OVERWRITE (UPDATE), if different information → create new with suffix (e.g., "EMAIL WORK" vs "EMAIL PERSONAL")**
-    8. Extract ALL structured facts, even basic ones like names and contact details
-    9. For account numbers and IDs, store only the last 4 digits
-    10. Include relationship context when extracting family/contact information
-    11. Extract service provider information with contact details and specialties
-    
-    Priority Order:
-    1. Contact information needed for task completion (contacts, basics)
-    2. Account and identity information (accounts, identities)
-    3. User preferences that affect task execution (preferences)
-    4. Relationship and service provider information (relationships, services)
-    
-    Remember: Extract stable, reusable facts that can be quickly referenced at the start 
-    of sessions to complete tasks efficiently. If it's a one-time event or temporary 
-    state, it belongs in episodic memory, not semantic memory.
+    2. Select the correct tag (DO NOT create new tags)
+    3. Use standard feature names
+    4. Include ownership prefix if information belongs to someone else (use name if available)
+    5. For duplicates: same info → skip, updated info → DELETE old + ADD new, different accounts → ADD new with suffix
+    6. Extract ONLY the factual data value (e.g., "john@example.com"), NOT the action (e.g., "User confirmed email")
+    7. For non-sensitive IDs, store; for sensitive info, DO NOT store
+    8. Always Check before returning the output: 
+        a. MUST NOT add two features with the same feature name under the same tag - only keep one if they are the same, use suffixes to distinguish if they are different. For update operation, do not forget to delete the old feature.
+        b. MUST NOT add temporary information (belongs in episodic memory).
+        c. MUST NOT add sensitive Personal Identifiable Information (PII).
 """
 
 # Custom consolidation prompt for task-oriented structured facts
 task_assistant_consolidation_prompt = """
-    Your job is to perform memory consolidation for a task-oriented structured facts memory system.
-    Despite the name, consolidation is not solely about reducing the amount of memories, but rather, minimizing interference between structured facts while maintaining data integrity and usability.
-    By consolidating memories, we remove unnecessary couplings of information from context, spurious correlations inherited from the circumstances of their acquisition.
+    You are performing memory consolidation for a task-oriented structured facts memory system.
+    Consolidation minimizes interference between structured facts while maintaining data integrity.
+    
+    ## INPUT/OUTPUT FORMAT
+    
+    **IMPORTANT: All input memories have the SAME tag. All outputs MUST use this SAME tag.**
 
-    You will receive a set of task-oriented structured facts memories which are semantically similar (same tag and feature name).
-    Produce a new list of memories to keep.
+    ### Input Memory
+    ```json
+    {"tag": "string", "feature": "string", "value": "string", "metadata": {"id": integer}}
+    ```
 
-    A memory is a json object with 4 fields:
-    - tag: broad category of memory (basics, contacts, identities, accounts, preferences, relationships, services, others)
-    - feature: feature name (e.g., "EMAIL", "PHONE NUMBER", "FULL NAME")
-    - value: detailed contents of the memory
-    - metadata: object with 1 field
-    -- id: integer
+    ### Output Memory
+    ```json
+    {"tag": "string", "feature": "string", "value": "string", "metadata": {"citations": [list of ids]}}
+    ```
 
-    You will output consolidated memories, which are json objects with 4 fields:
-    - tag: string (must be one of: basics, contacts, identities, accounts, preferences, relationships, services, others)
-    - feature: string (must follow FEATURE NAMING RULES below)
-    - value: string (detailed contents)
-    - metadata: object with 1 field
-    -- citations: list of ids of old memories which influenced this one
+    ## CONSOLIDATION RULES
 
-    You will also output a list of old memories to keep (memories are deleted by default).
+    ### Feature Names Format
+    - UPPERCASE with SPACES (e.g., "PHONE NUMBER", "EMAIL")
+    - Use suffixes for multiple accounts: "EMAIL WORK", "EMAIL PERSONAL"
+    - For ownership: prefer name over relationship ("ALICE PHONE NUMBER" > "SPOUSE EMAIL")
 
-    CRITICAL TAG RULES:
-    - You MUST ONLY use the tags defined in the tags list: basics, contacts, identities, accounts, preferences, relationships, services, others
-    - DO NOT create new tags - if information doesn't fit perfectly, choose the closest matching tag
-    - Financial-related information should use "accounts" (for account details) or "preferences" (for financial preferences)
-    - Use "others" tag only when the information clearly doesn't belong to any of the other defined tags
+    ### Step 1: DELETE First (Highest Priority)
+    
+    **Actions/Events - Must DELETE:**
+    - "User confirmed X on [date]", "User verified Y", "User updated Z"
+    - ASK: "Is this a static data value or an action?" If ACTION → DELETE
+    
+    **Sensitive PII - Must DELETE:**
+    - SSN, passport numbers, driver's license, credit cards, bank accounts
+    - Passwords, PINs, medical records, financial records
+    
+    **Temporary Information - Must DELETE:**
+    - Current location, Airbnb/hotel addresses, vacation rentals
+    - Travel itineraries, time-bound information
+    - ASK: "Will this still be true in 6 months?" If NO → DELETE
+    
+    **OK to Keep:**
+    - Contact info: names, emails, phones, general addresses (no unit numbers)
+    - Non-sensitive IDs: employee ID, student ID, member ID, customer ID
+    - Long-term preferences, birthdate, occupation
+    - ONLY if the value is actual data (e.g., "john@example.com"), NOT action description
 
-    FEATURE NAMING RULES (MUST FOLLOW):
-    - Use UPPERCASE letters with SPACES between words (e.g., "PHONE NUMBER", "EMAIL")
-    - Use full words, not abbreviations
-    - Be specific and descriptive
+    ### Step 2: Group and Consolidate
+    
+    **Same feature name + same/similar value:**
+    - Exact duplicates → DELETE duplicates, KEEP only one
+    - Nearly identical → DELETE all, CREATE one consolidated version
+    
+    Example:
+    - feature="EMAIL", value="user@example.com" (appears twice)
+    → DELETE duplicate, KEEP: {"tag": "contacts", "feature": "EMAIL", "value": "user@example.com"}
+    
+    - feature="FULL NAME", value="John Smith" / "John D. Smith"
+    → DELETE both, CREATE: {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith", "metadata": {"citations": ["1", "2"]}}
+    
+    **Same feature name + different value:**
+    - If different accounts → DELETE old, CREATE new with suffixes
+    - If evolution → DELETE old, KEEP new (most complete/current)
+    
+    Example (Different accounts):
+    - feature="EMAIL", value="personal@email.com" / "work@company.com"
+    → DELETE both, CREATE:
+      {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com", "metadata": {"citations": ["1"]}}
+      {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com", "metadata": {"citations": ["2"]}}
+    
+    Example (Evolution):
+    - feature="PHONE NUMBER", value="555-1234" (old) / "555-5678" (new)
+    → DELETE old, KEEP: {"tag": "contacts", "feature": "PHONE NUMBER", "value": "555-5678"}
+    
+    **Multiple Accounts:**
+    - Don't create suffixes until you have 2+ distinct accounts
+    - Use consistent suffixes: WORK, PERSONAL, HOME
 
-    Standard Feature Names (User's Own Information):
-    - "FULL NAME" (not "NAME", "USER NAME", "USERNAME")
-    - "EMAIL" or "EMAIL WORK", "EMAIL PERSONAL" (for multiple emails)
-    - "PHONE NUMBER" or "PHONE NUMBER WORK", "PHONE NUMBER PERSONAL" (for multiple phones)
-    - "BANK ACCOUNT LAST4" or "BANK ACCOUNT LAST4 CHECKING", "BANK ACCOUNT LAST4 SAVINGS" (for multiple accounts)
-    - "CREDIT CARD LAST4" or "CREDIT CARD LAST4 VISA", "CREDIT CARD LAST4 AMEX" (for multiple cards)
+    ### Step 3: Apply Ownership Rules
+    - Prefer name-based over relationship-based
+    - "ALICE PHONE NUMBER" > "FRIEND PHONE NUMBER"
+    - "DR SMITH EMAIL" > "DOCTOR EMAIL"
 
-    Feature Names with Ownership (Information Belonging to Others):
-    - Priority Rule: ALWAYS use the person's name if available (e.g., "ALICE PHONE NUMBER") instead of relationship type (e.g., "FRIEND PHONE NUMBER")
-    - If name is unknown: Use relationship type as fallback (e.g., "SPOUSE EMAIL", "CHILD PHONE NUMBER")
-    - For service providers: Use provider's name if available (e.g., "DR SMITH PHONE") instead of service type (e.g., "DOCTOR PHONE")
+    ## PROCESSING WORKFLOW
+    
+    Use your <think> section to follow these steps systematically:
+    
+    **Step 1: List all inputs**
+    Write: "Input: id=X, feature=Z, value=W" for each memory
+    
+    **Step 2: Identify DELETE candidates**
+    List IDs to DELETE (actions, sensitive PII, temporary info) with reason
+    Example: "DELETE id=3 (action: 'User confirmed email')"
+    
+    **Step 3: Group remaining by feature name**
+    Group memories with same feature name
+    Example: "Group EMAIL: id=1 (personal@email.com), id=2 (work@company.com)"
+    
+    **Step 4: Decide action per group**
+    - Same values → keep one or merge
+    - Different values → check if accounts or evolution
+    - Apply feature name rules (suffixes, ownership)
+    
+    **Step 5: Generate output**
+    - keep_memories: IDs to keep unchanged
+    - consolidated_memories: New memories with citations
 
-    CONSOLIDATION GUIDELINES:
+    ## OUTPUT FORMAT
 
-    1. **Identical Information (Same Value & Meaning)**: 
-       - If memories have identical values and meanings, DELETE duplicates and KEEP only one
-       - Example: Multiple "EMAIL" features with value "user@example.com" → Keep one, delete others
+    Both fields MUST be arrays. NEVER use null.
 
-    2. **Different Information (Different Value or Distinct Account)**:
-       - If memories have different values for the same feature name, they represent different accounts
-       - UPDATE feature names to use appropriate suffixes (e.g., "EMAIL WORK", "EMAIL PERSONAL")
-       - Example: "EMAIL": "user@example.com" and "EMAIL": "work@example.com" → 
-         * Keep "EMAIL PERSONAL": "user@example.com"
-         * Keep "EMAIL WORK": "work@example.com"
-         * Delete original "EMAIL" entries
+    ```
+    <think>
+    Step 1: List inputs...
+    Step 2: DELETE candidates...
+    Step 3: Groups...
+    Step 4: Decisions...
+    Step 5: Output...
+    </think>
+    {"consolidated_memories": [...], "keep_memories": [...]}
+    ```
 
-    3. **Ownership Consolidation**:
-       - If memories have the same information but different ownership representations:
-         * Prefer name-based features over relationship-based features
-         * Example: "FRIEND PHONE NUMBER": "123-456-7890" and "ALICE PHONE NUMBER": "123-456-7890" → 
-           Keep "ALICE PHONE NUMBER", delete "FRIEND PHONE NUMBER"
+    **keep_memories**: Array of ID strings (as strings) to keep unchanged. Use [] to delete all.
+    
+    **consolidated_memories**: Array of new memories. Each must include:
+    - tag: same as input
+    - feature: UPPERCASE with SPACES
+    - value: the actual data
+    - metadata.citations: array of source IDs
 
-    4. **Redundant Information**:
-       - Memories containing only redundant information should be deleted entirely
-       - If information has been processed into a more complete memory, delete the incomplete versions
+    ### Output Examples
 
-    5. **Feature Name Synchronization**:
-       - If memories are sufficiently similar but differ in key details, synchronize their feature names
-       - Use consistent naming across similar memories
-       - Keep only the key details (highest-entropy) in the feature name. The nuances go in the value field
+    Example 1 - Keep one, delete duplicate:
+    {"consolidated_memories": [], "keep_memories": ["1"]}
 
-    6. **Multiple Accounts Handling**:
-       - If enough memories share similar features but represent different accounts, use suffixes to distinguish them
-       - Don't create suffixes too early. Have at least two distinct accounts first
-       - Use consistent suffix naming (e.g., "EMAIL WORK", "EMAIL PERSONAL", not "EMAIL OFFICE", "EMAIL HOME")
+    Example 2 - Delete all (sensitive data):
+    {"consolidated_memories": [], "keep_memories": []}
 
-    Overall memory life-cycle:
-    raw structured facts -> extracted features -> features sorted by tag -> consolidated structured profiles
+    Example 3 - Merge similar values:
+    {"consolidated_memories": [
+        {"tag": "basics", "feature": "FULL NAME", "value": "John D. Smith", "metadata": {"citations": ["1", "2"]}}
+    ], "keep_memories": []}
 
-    The more memories you receive, the more interference there is in the memory system.
-    This causes cognitive load. Cognitive load is bad.
-    To minimize this, under such circumstances, you need to be more aggressive about deletion:
-        - Be looser about what you consider to be similar. Some distinctions are not worth the energy to maintain.
-        - Massage out the parts to keep and ruthlessly throw away the rest
-        - There is no free lunch here! At least some information must be deleted!
-
-    Do not create new tag names. Only use: basics, contacts, identities, accounts, preferences, relationships, services, others.
-
-    The proper noop syntax is:
-    {
-        "consolidate_memories": [],
-        "keep_memories": []
-    }
-
-    The final output schema is:
-    <think> insert your chain of thought here. </think>
-    {
-        "consolidate_memories": list of new memories to add,
-        "keep_memories": list of ids of old memories to keep
-    }
+    Example 4 - Rename for multiple accounts:
+    {"consolidated_memories": [
+        {"tag": "contacts", "feature": "EMAIL PERSONAL", "value": "personal@email.com", "metadata": {"citations": ["1"]}},
+        {"tag": "contacts", "feature": "EMAIL WORK", "value": "work@company.com", "metadata": {"citations": ["2"]}}
+    ], "keep_memories": []}
+    
+    ## REMEMBER
+    
+    - Be aggressive with deletion: More memories = more interference
+    - Profile data storage, NOT event logging
+    - Delete ruthlessly when in doubt
 """
 
 TaskAssistantSemanticCategory = SemanticCategory(

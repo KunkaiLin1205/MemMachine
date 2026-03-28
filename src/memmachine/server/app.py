@@ -80,12 +80,41 @@ class MemMachineAPI(FastAPI):
 
 app = MemMachineAPI(lifespan=mcp_http_lifespan)
 app.add_middleware(cast(type, AccessLogMiddleware))
-app.add_middleware(cast(type, RequestMetricsMiddleware))
+
+# Determine metrics factory based on environment
+# This needs to be done at import time since middleware is added at module level
+_metrics_factory_id = "otel" if os.getenv("OTEL_METRICS_ENABLED", "false").lower() == "true" else "prometheus"
+app.add_middleware(
+    cast(type, RequestMetricsMiddleware),
+    metrics_factory_id=_metrics_factory_id
+)
 
 
 def start_http() -> None:
     """Run the FastAPI HTTP application using the uvicorn server."""
     config = load_configuration()
+
+    # Setup OpenTelemetry metrics if enabled
+    otel_enabled = os.getenv("OTEL_METRICS_ENABLED", "false").lower() == "true"
+    if otel_enabled:
+        try:
+            from memmachine.server.otel_metrics import setup_otel_metrics
+
+            meter = setup_otel_metrics()
+            if meter:
+                logger.info("✅ OpenTelemetry metrics enabled - pushing to OTEL collector")
+            else:
+                logger.warning(
+                    "⚠️ OpenTelemetry metrics setup failed - falling back to Prometheus"
+                )
+        except ImportError:
+            logger.warning(
+                "⚠️ OpenTelemetry dependencies not installed. "
+                "Install with: pip install opentelemetry-api opentelemetry-sdk "
+                "opentelemetry-exporter-otlp-proto-grpc"
+            )
+    else:
+        logger.info("Using Prometheus metrics (OTEL_METRICS_ENABLED=false)")
 
     # Determine number of workers.
     # Note: We do not use (os.cpu_count() - 1) as this is often inaccurate in container
